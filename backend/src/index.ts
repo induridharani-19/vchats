@@ -64,7 +64,7 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    const isAllowed = allowedOrigins.some((allowed) => allowed && origin === allowed);
+    const isAllowed = allowedOrigins.some((allowed) => allowed && origin === allowed) || origin.endsWith('.vercel.app');
     if (isAllowed) {
       callback(null, true);
     } else {
