@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb+srv://vamsivalluri52_db_user:<db_password>@vchats.2hfybox.mongodb.net/?appName=VChats
+      - JWT_ACCESS_SECRET=vchats_access_token_secret_2026_super_secure_key_98231
+      - JWT_REFRESH_SECRET=vchats_refresh_token_secret_2026_super_secure_key_10293
+      - JWT_ACCESS_EXPIRY=15m
+      - JWT_REFRESH_EXPIRY=7d
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=vchats.notifications@gmail.com
+      - SMTP_PASS=your_gmail_app_password
+      - EMAIL_FROM=VChats <no-reply@vchats.com>
+      - FRONTEND_URL=http://localhost:8080
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: always

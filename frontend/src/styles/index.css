@@ -1,0 +1,240 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  /* Glassmorphism card styles */
+  .glass-card {
+    background: rgba(17, 24, 39, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .glass-card-light {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  }
+
+  .glass-input {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.2s ease-in-out;
+  }
+
+  .glass-input:focus {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: #00B69B;
+    box-shadow: 0 0 10px rgba(0, 182, 155, 0.15);
+  }
+
+  /* Custom custom scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 99px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 182, 155, 0.4);
+  }
+}
+
+/* Animations */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.33);
+  }
+  80%, 100% {
+    opacity: 0;
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+.pulse-ring-active {
+  animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.pulse-dot-active {
+  animation: pulse-dot 1.25s cubic-bezier(0.455, 0.03, 0.515, 0.955) -0.4s infinite;
+}
+
+/* Light Mode overrides */
+.light-mode {
+  --background-main: #ffffff;
+  --background-sidebar: #ffffff;
+  --text-main: #000000;
+  --text-muted: #000000;
+  --border-main: #000000;
+}
+
+.light-mode body {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* Force all backgrounds to be white */
+.light-mode .bg-gray-950,
+.light-mode .bg-slate-900,
+.light-mode .bg-obsidian,
+.light-mode .bg-gray-900,
+.light-mode .bg-gray-900\/30,
+.light-mode .bg-gray-900\/20,
+.light-mode .bg-gray-900\/40,
+.light-mode .bg-gray-950\/40,
+.light-mode .bg-gray-950\/60,
+.light-mode .bg-gray-950\/85,
+.light-mode .bg-brandViolet,
+.light-mode .bg-brandTeal,
+.light-mode .bg-brandTeal-dark,
+.light-mode .bg-gray-950\/60,
+.light-mode .bg-gray-900\/60,
+.light-mode .bg-slate-900\/80,
+.light-mode .bg-slate-900\/90,
+.light-mode .bg-slate-900\/50,
+.light-mode .bg-slate-950,
+.light-mode .bg-gray-905,
+.light-mode .bg-slate-900\/20,
+.light-mode .bg-slate-900\/30,
+.light-mode .bg-slate-900\/40,
+.light-mode .bg-slate-900\/60,
+.light-mode .bg-obsidian\/95,
+.light-mode .bg-black\/95,
+.light-mode .bg-black\/40 {
+  background-color: #ffffff !important;
+}
+
+/* Force all text colors to be black */
+.light-mode .text-white,
+.light-mode .text-gray-200,
+.light-mode .text-gray-300,
+.light-mode .text-gray-350,
+.light-mode .text-gray-400,
+.light-mode .text-gray-500,
+.light-mode .text-gray-600,
+.light-mode .text-gray-700,
+.light-mode .text-brandTeal,
+.light-mode .text-brandViolet,
+.light-mode .text-sky-400,
+.light-mode .text-red-400,
+.light-mode .text-red-550,
+.light-mode .text-red-500,
+.light-mode .text-emerald-400,
+.light-mode .text-blue-400,
+.light-mode .text-amber-500 {
+  color: #000000 !important;
+}
+
+/* Force all SVGs and icons to draw in black stroke */
+.light-mode svg,
+.light-mode svg path,
+.light-mode svg circle,
+.light-mode svg line,
+.light-mode svg polyline,
+.light-mode svg rect,
+.light-mode svg polygon {
+  stroke: #000000 !important;
+}
+
+/* Make sure fill properties are not coloring icons */
+.light-mode svg.fill-current {
+  fill: #000000 !important;
+}
+
+/* Force borders to be black so elements are visible */
+.light-mode .border,
+.light-mode .border-t,
+.light-mode .border-b,
+.light-mode .border-l,
+.light-mode .border-r,
+.light-mode [class*="border-"] {
+  border-color: #000000 !important;
+}
+
+/* Glass card overrides */
+.light-mode .glass-card,
+.light-mode .glass-card-light {
+  background: #ffffff !important;
+  border-color: #000000 !important;
+  box-shadow: none !important;
+}
+
+/* Message bubbles */
+.light-mode .bg-brandViolet,
+.light-mode .bg-obsidian {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid #000000 !important;
+}
+
+/* Active buttons and tags */
+.light-mode button,
+.light-mode label {
+  border-color: #000000 !important;
+}
+
+/* Input elements styling */
+.light-mode input,
+.light-mode textarea,
+.light-mode select {
+  background-color: #ffffff !important;
+  border-color: #000000 !important;
+  color: #000000 !important;
+}
+
+.light-mode input::placeholder,
+.light-mode textarea::placeholder {
+  color: #777777 !important;
+}
+
+/* Ignore theme wallpaper and inline colors in light mode */
+.light-mode [style*="background-color"],
+.light-mode [style*="background-image"] {
+  background-color: #ffffff !important;
+  background-image: none !important;
+}
+
+/* Specific styling for active list item selection */
+.light-mode .bg-brandTeal {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.light-mode .bg-brandTeal .text-white,
+.light-mode .bg-brandTeal .text-gray-200,
+.light-mode .bg-brandTeal .text-gray-300,
+.light-mode .bg-brandTeal .text-gray-400,
+.light-mode .bg-brandTeal .text-gray-500 {
+  color: #ffffff !important;
+}
+
+.light-mode .bg-brandTeal svg,
+.light-mode .bg-brandTeal svg path,
+.light-mode .bg-brandTeal svg circle,
+.light-mode .bg-brandTeal svg line,
+.light-mode .bg-brandTeal svg polyline,
+.light-mode .bg-brandTeal svg rect,
+.light-mode .bg-brandTeal svg polygon {
+  stroke: #ffffff !important;
+}
+
