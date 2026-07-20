@@ -1,0 +1,25 @@
+{
+  "name": "VChats - Secure Real-time Messaging",
+  "short_name": "VChats",
+  "description": "Secure, real-time messaging and calling web & mobile application.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0E14",
+  "theme_color": "#00B69B",
+  "orientation": "portrait-primary",
+  "categories": ["social", "communication"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -29,3 +29,27 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </Provider>
   </React.StrictMode>
 );
+
+// Register Service Worker for PWA support
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('[PWA] ServiceWorker registration successful with scope: ', registration.scope);
+      })
+      .catch((error) => {
+        console.error('[PWA] ServiceWorker registration failed: ', error);
+      });
+  });
+} else if ('serviceWorker' in navigator) {
+  // In development, also register service worker so we can inspect it, but without active static file caching if not desired
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('[PWA Dev] ServiceWorker registration successful: ', registration.scope);
+      })
+      .catch((error) => {
+        console.error('[PWA Dev] ServiceWorker registration failed: ', error);
+      });
+  });
+}

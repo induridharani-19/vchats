@@ -248,6 +248,47 @@ const ChatDashboard: React.FC = () => {
   const [activeVideoFilter, setActiveVideoFilter] = useState<'none' | 'grayscale' | 'sepia' | 'blur' | 'beauty'>('none');
   const [showVideoFiltersMenu, setShowVideoFiltersMenu] = useState(false);
 
+  // Layout and Device Mode Preferences
+  const [layoutMode, setLayoutMode] = useState<'responsive' | 'mobile' | 'desktop' | 'mockup'>(
+    () => (localStorage.getItem('vchats_layout_mode') as any) || 'responsive'
+  );
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  // PWA Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsInstallable(false);
+      setDeferredPrompt(null);
+    }
+  };
+
+  const isMobileView =
+    layoutMode === 'mobile' ||
+    layoutMode === 'mockup' ||
+    (layoutMode === 'responsive' && windowWidth < 768);
+
   // Group Edit States
   const [showEditGroupModal, setShowEditGroupModal] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
@@ -1790,8 +1831,35 @@ How can I help you today? You can type:
       recordingStreamRef.current = stream;
       
       const chunks: Blob[] = [];
-      const mimeType = type === 'video' ? 'video/webm' : 'audio/webm';
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      
+      // Determine device compatible mimeType (specifically for iOS Safari support)
+      let mimeType = '';
+      if (type === 'video') {
+        if (typeof MediaRecorder.isTypeSupported === 'function') {
+          if (MediaRecorder.isTypeSupported('video/mp4')) {
+            mimeType = 'video/mp4';
+          } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+            mimeType = 'video/webm;codecs=vp9';
+          } else if (MediaRecorder.isTypeSupported('video/webm')) {
+            mimeType = 'video/webm';
+          }
+        }
+      } else {
+        if (typeof MediaRecorder.isTypeSupported === 'function') {
+          if (MediaRecorder.isTypeSupported('audio/webm')) {
+            mimeType = 'audio/webm';
+          } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            mimeType = 'audio/mp4';
+          } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+            mimeType = 'audio/ogg';
+          } else if (MediaRecorder.isTypeSupported('audio/aac')) {
+            mimeType = 'audio/aac';
+          }
+        }
+      }
+
+      const options = mimeType ? { mimeType } : undefined;
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       
       mediaRecorder.ondataavailable = (e) => {
@@ -1801,7 +1869,8 @@ How can I help you today? You can type:
       };
       
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: mimeType });
+        const actualMimeType = mediaRecorder.mimeType || (type === 'video' ? 'video/webm' : 'audio/webm');
+        const blob = new Blob(chunks, { type: actualMimeType });
         setRecordedBlob(blob);
         setRecordedUrl(URL.createObjectURL(blob));
       };
@@ -1864,7 +1933,24 @@ How can I help you today? You can type:
   const handleSendRecordedMessage = async () => {
     if (!recordedBlob || !activeConversation) return;
     
-    const fileExtension = recordingType === 'video' ? 'webm' : 'webm';
+    // Dynamically resolve correct file extension based on recording MIME Type
+    let fileExtension = 'webm';
+    if (recordedBlob.type) {
+      const parts = recordedBlob.type.split('/');
+      if (parts.length > 1) {
+        const ext = parts[1].split(';')[0];
+        if (ext === 'x-matroska') {
+          fileExtension = 'mkv';
+        } else if (ext === 'quicktime') {
+          fileExtension = 'mov';
+        } else if (ext === 'mp4' || ext === 'm4a') {
+          fileExtension = 'mp4';
+        } else if (ext) {
+          fileExtension = ext;
+        }
+      }
+    }
+    
     const fileName = `recorded-${Date.now()}.${fileExtension}`;
     const fileType = recordingType === 'video' ? 'video' : 'audio';
     const file = new File([recordedBlob], fileName, { type: recordedBlob.type });
@@ -2050,18 +2136,28 @@ How can I help you today? You can type:
     }
   };
 
-  return (
-    <div className="flex flex-col md:flex-row h-screen bg-obsidian text-gray-200 overflow-hidden font-sans selection:bg-brandTeal selection:text-white">
+  const innerContent = (
+    <div className={`flex w-full bg-obsidian text-gray-200 overflow-hidden font-sans selection:bg-brandTeal selection:text-white ${
+      layoutMode === 'mockup' ? 'h-full' : 'h-screen h-[100dvh]'
+    } ${
+      isMobileView ? 'flex-col' : 'flex-row'
+    }`}>
       {/* 1. Nav Sidebar (Bottom on mobile, Left on desktop) */}
-      <div className={`fixed bottom-0 left-0 w-full h-16 flex flex-row items-center justify-around py-0 px-4 border-t border-gray-900 bg-gray-950/90 md:relative md:bottom-auto md:left-auto md:w-16 md:h-screen md:flex-col md:justify-between md:py-6 md:px-0 md:border-t-0 md:border-r md:bg-gray-950/60 z-30 ${
-        showMobileChatActive && activeConversation ? 'hidden md:flex' : 'flex'
+      <div className={`z-30 ${
+        isMobileView
+          ? `fixed bottom-0 left-0 w-full h-16 flex flex-row items-center justify-around py-0 px-4 border-t border-gray-900 bg-gray-950/90 ${
+              showMobileChatActive && activeConversation ? 'hidden' : 'flex'
+            }`
+          : 'relative bottom-auto left-auto w-16 h-screen flex flex-col justify-between py-6 px-0 border-r border-gray-900 bg-gray-950/60 flex'
       }`}>
-        <div className="flex flex-row md:flex-col items-center gap-6">
-          <div className="hidden md:flex w-10 h-10 rounded-xl bg-teal-gradient items-center justify-center font-bold text-lg text-white shadow-glass">
-            V
-          </div>
+        <div className={`flex items-center gap-6 ${isMobileView ? 'flex-row' : 'flex-col'}`}>
+          {!isMobileView && (
+            <div className="w-10 h-10 rounded-xl bg-teal-gradient items-center justify-center font-bold text-lg text-white shadow-glass flex">
+              V
+            </div>
+          )}
 
-          <div className="flex flex-row md:flex-col gap-3">
+          <div className={`flex gap-3 ${isMobileView ? 'flex-row' : 'flex-col'}`}>
             <button
               onClick={() => setActiveTab('chats')}
               className={`p-3 rounded-xl transition-all ${
@@ -2120,7 +2216,7 @@ How can I help you today? You can type:
           </div>
         </div>
 
-        <div className="flex flex-row md:flex-col items-center gap-4">
+        <div className={`flex items-center gap-4 ${isMobileView ? 'flex-row' : 'flex-col'}`}>
           {user?.isAdmin && (
             <button
               onClick={() => navigate('/admin')}
@@ -2142,8 +2238,10 @@ How can I help you today? You can type:
       </div>
 
       {/* 2. Middle Sidebar Pane (Tab-specific list pane) */}
-      <div className={`w-full md:w-80 border-r border-gray-900 bg-gray-950/30 flex flex-col z-20 pb-16 md:pb-0 ${
-        showMobileChatActive && activeConversation ? 'hidden md:flex' : 'flex'
+      <div className={`border-r border-gray-900 bg-gray-950/30 flex flex-col z-20 ${
+        isMobileView
+          ? `w-full pb-16 ${showMobileChatActive && activeConversation ? 'hidden' : 'flex'}`
+          : 'w-80 pb-0 flex'
       }`}>
         {/* Chats Tab View */}
         {activeTab === 'chats' && (() => {
@@ -2922,8 +3020,65 @@ How can I help you today? You can type:
                           </div>
                         </label>
                       </div>
+
+                      {/* Layout Mode Options */}
+                      <h4 className="font-bold text-white text-xs block mb-2 uppercase tracking-wide text-gray-550 mt-4">App Layout Mode</h4>
+                      <div className="space-y-3 bg-gray-900/30 p-4 rounded-2xl border border-gray-900">
+                        {[
+                          { id: 'responsive', name: 'Auto / Responsive', desc: 'Adapts automatically to window size' },
+                          { id: 'desktop', name: 'Desktop Mode', desc: 'Forces dual-pane (sidebar + chat) split layout' },
+                          { id: 'mobile', name: 'Mobile Mode', desc: 'Forces single-pane mobile layout (collapsible sidebar)' },
+                          { id: 'mockup', name: 'Mobile Mockup', desc: 'Simulates a premium virtual smartphone device frame' }
+                        ].map((mode) => (
+                          <label key={mode.id} className="flex items-center gap-3 cursor-pointer first:pt-0 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-gray-900/50 [&:not(:first-child)]:pt-3">
+                            <input
+                              type="radio"
+                              name="layoutMode"
+                              checked={layoutMode === mode.id}
+                              onChange={() => {
+                                setLayoutMode(mode.id as any);
+                                localStorage.setItem('vchats_layout_mode', mode.id);
+                              }}
+                              className="w-4 h-4 text-brandTeal bg-gray-900 border-gray-800 focus:ring-brandTeal focus:outline-none"
+                            />
+                            <div>
+                              <span className="font-bold text-gray-200 block text-xs">{mode.name}</span>
+                              <span className="text-[10px] text-gray-500 block">{mode.desc}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+
+                      {/* PWA App Installation Option */}
+                      <h4 className="font-bold text-white text-xs block mb-2 uppercase tracking-wide text-gray-550 mt-4">PWA Native Desktop & Mobile App</h4>
+                      <div className="bg-gray-900/30 p-4 rounded-2xl border border-gray-900 space-y-3">
+                        <span className="text-[10px] text-gray-550 block leading-relaxed">
+                          Install VChats as a native application on your device for standalone window operation, startup launching, and instant loading.
+                        </span>
+                        
+                        {isInstallable ? (
+                          <button
+                            type="button"
+                            onClick={handleInstallApp}
+                            className="w-full py-2 px-4 rounded-xl bg-teal-gradient text-white text-xs font-bold shadow-lg hover:shadow-teal-500/20 hover:scale-[1.01] active:scale-100 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Install VChats Native App
+                          </button>
+                        ) : (
+                          <div className="p-3 bg-gray-955/40 rounded-xl border border-gray-900 text-center">
+                            <span className="text-[10px] text-gray-450 block font-medium">
+                              {navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad') ? (
+                                'To install on iOS: Tap the "Share" button in Safari and select "Add to Home Screen".'
+                              ) : (
+                                'VChats is already installed or is running directly within your web browser.'
+                              )}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
                       <button
-                        onClick={() => alert("General settings saved.")}
+                        onClick={() => alert("General preferences updated successfully.")}
                         className="w-full py-2.5 rounded-xl bg-brandTeal hover:bg-brandTeal-dark text-white font-bold transition-all text-xs"
                       >
                         Save Preferences
@@ -3395,7 +3550,9 @@ How can I help you today? You can type:
 
       {/* 3. Main Chat Panel (Message window / Conversation pane) */}
       <div className={`flex-1 flex flex-col h-full overflow-hidden bg-gray-950/40 relative z-10 ${
-        showMobileChatActive && activeConversation ? 'flex' : 'hidden md:flex'
+        isMobileView
+          ? (showMobileChatActive && activeConversation ? 'flex' : 'hidden')
+          : 'flex'
       }`}>
         {activeConversation ? (
           <>
@@ -3403,12 +3560,14 @@ How can I help you today? You can type:
             <div className="h-16 px-4 md:px-6 border-b border-gray-900 bg-gray-950/60 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {/* Back button for mobile */}
-                <button
-                  onClick={() => setShowMobileChatActive(false)}
-                  className="md:hidden p-2 rounded-lg bg-gray-900 text-gray-400 hover:text-white mr-1"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
+                {isMobileView && (
+                  <button
+                    onClick={() => setShowMobileChatActive(false)}
+                    className="p-2 rounded-lg bg-gray-900 text-gray-400 hover:text-white mr-1"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                )}
                 <div className="relative">
                   <div className="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center text-gray-500 font-bold overflow-hidden">
                     {getConversationAvatar(activeConversation, currentUserId) ? (
@@ -4115,37 +4274,41 @@ How can I help you today? You can type:
 
                   {recordingType ? (
                     // Inline Recorder Panel
-                    <div className="flex-1 flex items-center justify-between gap-4 p-2 bg-gray-900 border border-gray-800 rounded-xl px-4 animate-in slide-in-from-bottom duration-200 select-none">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full bg-red-500 ${isRecording ? 'animate-pulse' : ''}`} />
-                        <span className="text-xs font-mono font-bold text-white shrink-0">
-                          {isRecording ? 'RECORDING' : 'PREVIEW'} ({Math.floor(recordingSeconds / 60).toString().padStart(2, '0')}:{(recordingSeconds % 60).toString().padStart(2, '0')})
-                        </span>
+                    <div className={`flex-grow flex gap-3 p-3 bg-gray-900 border border-gray-800 rounded-xl animate-in slide-in-from-bottom duration-200 select-none ${
+                      isMobileView ? 'flex-col items-stretch' : 'items-center justify-between'
+                    }`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2.5 h-2.5 rounded-full bg-red-500 ${isRecording ? 'animate-pulse' : ''}`} />
+                          <span className="text-[10px] font-mono font-bold text-white shrink-0">
+                            {isRecording ? 'RECORDING' : 'PREVIEW'} ({Math.floor(recordingSeconds / 60).toString().padStart(2, '0')}:{(recordingSeconds % 60).toString().padStart(2, '0')})
+                          </span>
+                        </div>
+
+                        {recordingType === 'video' && isRecording && recordingStreamRef.current && (
+                          <div className="w-12 h-9 rounded-lg overflow-hidden border border-brandTeal bg-black shrink-0">
+                            <video
+                              ref={(el) => {
+                                if (el) el.srcObject = recordingStreamRef.current;
+                              }}
+                              autoPlay
+                              muted
+                              playsInline
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+
+                        {recordedUrl && (
+                          <div className="flex items-center gap-2 shrink-0">
+                            {recordingType === 'video' ? (
+                              <video src={recordedUrl} controls className="h-9 w-14 rounded-lg border border-gray-850" />
+                            ) : (
+                              <audio src={recordedUrl} controls className="h-7 max-w-[120px] rounded" />
+                            )}
+                          </div>
+                        )}
                       </div>
-
-                      {recordingType === 'video' && isRecording && recordingStreamRef.current && (
-                        <div className="w-16 h-12 rounded-lg overflow-hidden border border-brandTeal bg-black shrink-0">
-                          <video
-                            ref={(el) => {
-                              if (el) el.srcObject = recordingStreamRef.current;
-                            }}
-                            autoPlay
-                            muted
-                            playsInline
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-
-                      {recordedUrl && (
-                        <div className="flex items-center gap-2 shrink-0">
-                          {recordingType === 'video' ? (
-                            <video src={recordedUrl} controls className="h-12 w-20 rounded-lg border border-gray-850" />
-                          ) : (
-                            <audio src={recordedUrl} controls className="h-8 max-w-[120px] rounded" />
-                          )}
-                        </div>
-                      )}
 
                       {recordedUrl && (
                         <input
@@ -4153,24 +4316,24 @@ How can I help you today? You can type:
                           placeholder="Add a caption..."
                           value={recordingCaption}
                           onChange={(e) => setRecordingCaption(e.target.value)}
-                          className="flex-1 min-w-0 px-3 py-1 rounded bg-gray-950 text-xs text-white border border-gray-850 focus:outline-none"
+                          className="w-full px-3 py-1.5 rounded-xl bg-gray-955 text-xs text-white border border-gray-850 focus:outline-none focus:border-brandTeal"
                         />
                       )}
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 justify-end">
                         {isRecording ? (
                           <>
                             <button
                               type="button"
                               onClick={cancelRecording}
-                              className="px-2.5 py-1 rounded-lg bg-red-950/40 text-red-400 text-[10px] font-bold"
+                              className="px-3 py-1 rounded-xl bg-red-950/40 hover:bg-red-950/60 text-red-400 text-[10px] font-bold transition-all"
                             >
                               Cancel
                             </button>
                             <button
                               type="button"
                               onClick={stopRecording}
-                              className="px-2.5 py-1 rounded-lg bg-brandTeal text-white text-[10px] font-bold"
+                              className="px-3 py-1 rounded-xl bg-brandTeal hover:bg-brandTeal-dark text-white text-[10px] font-bold transition-all"
                             >
                               Stop
                             </button>
@@ -4180,21 +4343,21 @@ How can I help you today? You can type:
                             <button
                               type="button"
                               onClick={() => startRecording(recordingType)}
-                              className="px-2.5 py-1 rounded-lg bg-gray-950 text-gray-400 hover:text-white text-[10px] font-bold"
+                              className="px-3 py-1 rounded-xl bg-gray-950 hover:bg-gray-850 text-gray-400 hover:text-white text-[10px] font-bold transition-all"
                             >
                               Re-record
                             </button>
                             <button
                               type="button"
                               onClick={cancelRecording}
-                              className="px-2.5 py-1 rounded-lg bg-red-955 text-red-400 text-[10px] font-bold"
+                              className="px-3 py-1 rounded-xl bg-red-950/30 hover:bg-red-950/50 text-red-400 text-[10px] font-bold transition-all"
                             >
                               Delete
                             </button>
                             <button
                               type="button"
                               onClick={handleSendRecordedMessage}
-                              className="px-3 py-1 rounded-lg bg-brandTeal text-white text-[10px] font-bold"
+                              className="px-3 py-1 rounded-xl bg-brandTeal hover:bg-brandTeal-dark text-white text-[10px] font-bold transition-all"
                             >
                               Send
                             </button>
@@ -4644,8 +4807,9 @@ How can I help you today? You can type:
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center p-4 text-white"
           >
-            {/* Call Screen Card (FaceTime style wrapper) */}
-            <div className="relative w-full max-w-md aspect-[3/4] md:aspect-[9/16] md:max-h-[80vh] bg-gray-950 rounded-3xl overflow-hidden border border-gray-900 shadow-glass flex flex-col items-center justify-between p-8">
+            <div className={`relative w-full max-w-md bg-gray-950 rounded-3xl overflow-hidden border border-gray-900 shadow-glass flex flex-col items-center justify-between p-8 ${
+              isMobileView ? 'aspect-[3/4]' : 'aspect-[9/16] max-h-[80vh]'
+            }`}>
               
               {/* Group Calling vs 1-to-1 Calling Layouts */}
               {callState.peerUser?.id === 'group' ? (
@@ -5438,7 +5602,9 @@ How can I help you today? You can type:
 
       {/* Image Editor Modal */}
       {showImageEditorModal && imageToEdit && (
-        <div className="fixed inset-0 bg-black/95 z-[60] flex flex-col md:flex-row p-6 gap-6 justify-center items-center">
+        <div className={`fixed inset-0 bg-black/95 z-[60] flex p-6 gap-6 justify-center items-center ${
+          isMobileView ? 'flex-col overflow-y-auto' : 'flex-row'
+        }`}>
           {/* Left panel: Preview canvas */}
           <div className="relative flex-1 max-w-xl aspect-square bg-gray-950 border border-gray-850 rounded-3xl overflow-hidden flex items-center justify-center shadow-2xl p-4">
             <div className="relative max-w-full max-h-full">
@@ -5469,7 +5635,9 @@ How can I help you today? You can type:
           </div>
 
           {/* Right panel: Editor controls */}
-          <div className="w-full md:w-80 bg-gray-900/60 glass-card border border-gray-800 p-6 rounded-3xl shadow-glass flex flex-col gap-6 text-white max-h-full overflow-y-auto custom-scrollbar select-none">
+          <div className={`bg-gray-900/60 glass-card border border-gray-800 p-6 rounded-3xl shadow-glass flex flex-col gap-6 text-white max-h-full overflow-y-auto custom-scrollbar select-none ${
+            isMobileView ? 'w-full' : 'w-80'
+          }`}>
             <div className="flex justify-between items-center border-b border-gray-800 pb-3">
               <span className="font-extrabold text-sm flex items-center gap-1.5"><Sliders className="w-4 h-4 text-brandTeal" /> Image Editor</span>
               <button
@@ -5663,7 +5831,9 @@ How can I help you today? You can type:
       {activeStoryGroup && (
         <div className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center select-none">
           {/* Narrow Phone Screen container */}
-          <div className="w-full max-w-md h-full md:h-[90vh] bg-gray-950 flex flex-col relative rounded-3xl overflow-hidden shadow-2xl border border-gray-900">
+          <div className={`w-full max-w-md bg-gray-950 flex flex-col relative rounded-3xl overflow-hidden shadow-2xl border border-gray-900 ${
+            isMobileView ? 'h-full' : 'h-[90vh]'
+          }`}>
             {/* Top Indicator bars */}
             <div className="absolute top-3 left-3 right-3 z-30 flex gap-1.5">
               {activeStoryGroup.stories.map((story, i) => {
@@ -6579,6 +6749,38 @@ How can I help you today? You can type:
       )}
     </div>
   );
+
+  if (layoutMode === 'mockup') {
+    return (
+      <div className="min-h-screen w-screen bg-[#05070a] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-950/20 via-gray-950 to-gray-950 flex flex-col items-center justify-center p-4 overflow-y-auto">
+        <div className="mb-4 flex items-center gap-3 bg-gray-900/60 p-2 px-4 rounded-full border border-gray-800 backdrop-blur-md select-none">
+          <span className="text-xs text-gray-400 font-bold">VChats Mobile Preview</span>
+          <button
+            onClick={() => {
+              setLayoutMode('responsive');
+              localStorage.setItem('vchats_layout_mode', 'responsive');
+            }}
+            className="text-[10px] px-2.5 py-1 rounded-full bg-gray-850 hover:bg-gray-700 text-gray-300 transition-all font-bold"
+          >
+            Exit Mockup
+          </button>
+        </div>
+
+        <div className="relative w-[380px] h-[820px] bg-obsidian rounded-[50px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] border-[12px] border-gray-800 ring-4 ring-gray-900/40 overflow-hidden flex flex-col">
+          <div className="absolute top-3.5 left-1/2 transform -translate-x-1/2 w-28 h-6 bg-black rounded-full z-50 flex items-center justify-center shadow-inner">
+            <div className="w-2.5 h-2.5 rounded-full bg-gray-900 absolute right-3" />
+          </div>
+          <div className="absolute top-1 left-1/2 transform -translate-x-1/2 w-12 h-1 bg-gray-700/50 rounded-full z-50" />
+          <div className="flex-1 w-full h-full overflow-hidden relative bg-obsidian">
+            {innerContent}
+          </div>
+          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-32 h-1 bg-gray-600 rounded-full z-50" />
+        </div>
+      </div>
+    );
+  }
+
+  return innerContent;
 };
 
 export default ChatDashboard;

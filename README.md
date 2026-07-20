@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-# VChats - Real-Time messaging Web Application
 
 VChats is a production-ready, real-time messaging web application inspired by WhatsApp but designed without phone number requirements. Users register using unique usernames, email addresses, and passwords, with mandatory email verification (OTP-based) before login.
 
@@ -258,5 +256,3 @@ You can launch the entire stack using Docker Compose:
    *   `VITE_SOCKET_URL` = your deployed Render socket URL (e.g. `https://vchats-api.onrender.com`).
 4. Click **Deploy**.
 =======
-# Vchats
->>>>>>> 480f3508067f9c8d0040459704ee1ce511a7beaf

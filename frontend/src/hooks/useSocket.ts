@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { io, Socket } from 'socket.io-client';
 import { RootState } from '../redux/store';
@@ -20,17 +20,20 @@ import { receiveCall, endCall, connectCall } from '../redux/callSlice';
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 let socketInstance: Socket | null = null;
+let listenersBound = false;
 
 export const useSocket = () => {
   const dispatch = useDispatch();
   const { token, user, isAuthenticated } = useSelector((state: RootState) => state.auth);
-  const socketRef = useRef<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(socketInstance);
 
   useEffect(() => {
     if (!isAuthenticated || !token || !user) {
       if (socketInstance) {
         socketInstance.disconnect();
         socketInstance = null;
+        listenersBound = false;
+        setSocket(null);
       }
       return;
     }
@@ -42,6 +45,16 @@ export const useSocket = () => {
           token,
         },
       });
+      setSocket(socketInstance);
+    }
+
+    // Update local state if instance is already set (e.g. on hot reload or tab change)
+    if (socketInstance && socket !== socketInstance) {
+      setSocket(socketInstance);
+    }
+
+    if (socketInstance && !listenersBound) {
+      listenersBound = true;
 
       // Bind global real-time listeners
       socketInstance.on('connect', () => {
@@ -88,7 +101,6 @@ export const useSocket = () => {
 
       // Reactions
       socketInstance.on('reaction-add', ({ messageId, reactions }) => {
-        // We can dispatch a local update
         dispatch(updateMessageStatus({ _id: messageId, reactions } as any));
       });
 
@@ -111,8 +123,6 @@ export const useSocket = () => {
       });
 
       socketInstance.on('group-removed', () => {
-        // Remove conversation or set active to null
-        // For simplicity we just reload page or handle conversation deletion
         window.location.reload();
       });
 
@@ -160,13 +170,7 @@ export const useSocket = () => {
         window.location.href = '/login';
       });
     }
-
-    socketRef.current = socketInstance;
-
-    return () => {
-      // Keep socket open unless user logs out (so cleanup doesn't trigger on every rerender)
-    };
   }, [isAuthenticated, token, user, dispatch]);
 
-  return socketRef.current;
+  return socket;
 };

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Teal to Violet gradient matching the VChats theme -->
+    <linearGradient id="vchatsGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00B69B" />
+      <stop offset="100%" stop-color="#8B5CF6" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#00B69B" flood-opacity="0.3" />
+    </filter>
+  </defs>
+  
+  <!-- Outer Rounded Square Background -->
+  <rect width="512" height="512" rx="128" fill="url(#vchatsGradient)" />
+  
+  <!-- Sleek Speech Bubble Graphic -->
+  <g transform="translate(116, 116)" filter="url(#glow)">
+    <!-- Speech Bubble Body -->
+    <path d="M 140 0 C 62.68 0 0 62.68 0 140 C 0 188.08 24.16 230.56 61.12 255.84 C 54.4 286.72 38.08 308.96 16.64 322.4 C 13.92 324.16 12.8 327.36 14.08 330.24 C 15.36 333.12 18.24 334.88 21.28 334.72 C 78.4 331.04 125.12 299.84 153.6 276.96 C 149.12 277.6 144.64 278.08 140 278.08 C 217.32 278.08 280 215.4 280 140 C 280 62.68 217.32 0 140 0 Z" fill="#ffffff" />
+    
+    <!-- Stylized V letter cutout -->
+    <path d="M 98 80 L 126 185 C 127 189 131 192 135 192 C 139 192 143 189 144 185 L 172 80 C 174 74 169 68 163 68 L 150 68 C 147 68 144 70 143 73 L 135 125 L 127 73 C 126 70 123 68 120 68 L 107 68 C 101 68 96 74 98 80 Z" fill="url(#vchatsGradient)" />
+  </g>
+</svg>
