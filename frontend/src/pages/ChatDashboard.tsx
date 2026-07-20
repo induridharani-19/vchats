@@ -72,11 +72,19 @@ import { useSocket } from '../hooks/useSocket';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { User, Conversation, Message, Story } from '../types';
 
+const DEFAULT_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236B7280'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+
 const getFileUrl = (url?: string) => {
-  if (!url) return 'https://via.placeholder.com/150';
+  if (!url) return DEFAULT_AVATAR;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const backendBase = (import.meta.env.VITE_API_URL || 'http://localhost:5050/api/v1').replace('/api/v1', '');
-  return `${backendBase}${url}`;
+  
+  let backendBase = (import.meta.env.VITE_API_URL || 'http://localhost:5050/api/v1').replace('/api/v1', '');
+  if (!backendBase.endsWith('/')) {
+    backendBase = backendBase + '/';
+  }
+  
+  const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
+  return `${backendBase}${cleanUrl}`;
 };
 
 const getConversationTitle = (conv: Conversation, currentUserId: string) => {
@@ -2764,7 +2772,7 @@ How can I help you today? You can type:
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         {profilePhoto ? (
-                          <img src={getFileUrl(profilePhoto)} alt="" className="w-10 h-10 rounded-xl object-cover shrink-0" />
+                          <img src={getFileUrl(profilePhoto)} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" className="w-10 h-10 rounded-xl object-cover shrink-0" />
                         ) : (
                           <div className="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center text-gray-500 font-bold shrink-0">
                             {isGroup ? 'G' : 'C'}

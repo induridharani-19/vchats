@@ -10,6 +10,7 @@ export interface ICall extends Document {
   startedAt?: Date;
   endedAt?: Date;
   deletedFor?: mongoose.Types.ObjectId[];
+  messageId?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +50,11 @@ const CallSchema: Schema = new Schema(
     duration: {
       type: Number,
       default: 0,
+    },
+    messageId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Message',
+      required: false,
     },
     startedAt: {
       type: Date,
