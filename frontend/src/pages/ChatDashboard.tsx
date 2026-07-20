@@ -47,7 +47,9 @@ import {
   UserX,
   CheckSquare,
   Fingerprint,
-  Monitor
+  Monitor,
+  Download,
+  Smartphone
 } from 'lucide-react';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 
@@ -306,6 +308,7 @@ const ChatDashboard: React.FC = () => {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [recordingCaption, setRecordingCaption] = useState('');
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
@@ -2463,9 +2466,9 @@ How can I help you today? You can type:
                         {/* Content details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-sm text-white truncate">{title}</span>
+                            <span className={`font-bold text-white truncate ${isMobileView ? 'text-base' : 'text-sm'}`}>{title}</span>
                             {conv.lastMessage && conv.lastMessage.createdAt && !isNaN(new Date(conv.lastMessage.createdAt).getTime()) && (
-                              <span className={`text-[10px] ${conv.unreadCounts?.[currentUserId] > 0 ? 'text-brandTeal font-bold' : 'text-gray-505'}`}>
+                              <span className={`${isMobileView ? 'text-xs' : 'text-[10px]'} ${conv.unreadCounts?.[currentUserId] > 0 ? 'text-brandTeal font-bold' : 'text-gray-505'}`}>
                                 {new Date(conv.lastMessage.createdAt).toLocaleTimeString([], {
                                   hour: '2-digit',
                                   minute: '2-digit',
@@ -2474,7 +2477,7 @@ How can I help you today? You can type:
                             )}
                           </div>
                           <div className="flex items-center justify-between mt-0.5">
-                            <p className="text-xs text-gray-400 truncate flex-1 pr-2">
+                            <p className={`text-gray-400 truncate flex-1 pr-2 ${isMobileView ? 'text-sm' : 'text-xs'}`}>
                               {conv.lastMessage && typeof conv.lastMessage === 'object' ? conv.lastMessage.content : 'No messages yet'}
                             </p>
                             {conv.unreadCounts?.[currentUserId] > 0 && (
@@ -2859,6 +2862,7 @@ How can I help you today? You can type:
                       { id: 'video-voice', title: 'Video & voice', desc: 'Camera, microphone & speakers', icon: Video },
                       { id: 'notifications', title: 'Notifications', desc: 'Messages, groups, sounds', icon: Volume2 },
                       { id: 'shortcuts', title: 'Keyboard shortcuts', desc: 'Quick actions', icon: Music },
+                      { id: 'download', title: 'Download VChats App', desc: 'Install VChats for PC, Android & iOS', icon: Download },
                       { id: 'help', title: 'Help and feedback', desc: 'Help centre, contact us, privacy policy', icon: Info },
                     ]
                       .filter(opt => 
@@ -2870,15 +2874,21 @@ How can I help you today? You can type:
                         return (
                           <div
                             key={opt.id}
-                            onClick={() => setActiveSettingSubPage(opt.id as any)}
+                            onClick={() => {
+                              if (opt.id === 'download') {
+                                setShowDownloadModal(true);
+                              } else {
+                                setActiveSettingSubPage(opt.id as any);
+                              }
+                            }}
                             className="flex items-center gap-3 p-3 hover:bg-gray-900/60 rounded-xl cursor-pointer transition-all"
                           >
                             <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center text-gray-400">
                               <IconComponent className="w-4 h-4" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <span className="text-xs font-bold text-gray-200 block">{opt.title}</span>
-                              <span className="text-[10px] text-gray-500 block">{opt.desc}</span>
+                              <span className={`font-bold text-gray-200 block ${isMobileView ? 'text-sm' : 'text-xs'}`}>{opt.title}</span>
+                              <span className={`text-gray-555 block ${isMobileView ? 'text-xs' : 'text-[10px]'}`}>{opt.desc}</span>
                             </div>
                           </div>
                         );
@@ -3583,11 +3593,11 @@ How can I help you today? You can type:
                 </div>
 
                 <div>
-                  <span className="font-extrabold text-sm text-white block">
+                  <span className={`font-extrabold text-white block ${isMobileView ? 'text-base' : 'text-sm'}`}>
                     {getConversationTitle(activeConversation, currentUserId)}
                   </span>
                   {activeConversation.type !== 'group' && (
-                    <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                    <span className={`text-gray-500 flex items-center gap-1 ${isMobileView ? 'text-xs' : 'text-[10px]'}`}>
                       {(() => {
                         const peer = activeConversation.participants.find((p) => {
                           const pId = typeof p === 'object' ? p._id || (p as any).id : p;
@@ -4059,7 +4069,7 @@ How can I help you today? You can type:
                                 )}
 
                                 {msg.type !== 'contact' && (
-                                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                  <p className={`leading-relaxed whitespace-pre-wrap ${isMobileView ? 'text-base font-medium' : 'text-sm'}`}>{msg.content}</p>
                                 )}
 
                                 <div className="flex items-center justify-end gap-1.5 mt-1">
@@ -4371,7 +4381,7 @@ How can I help you today? You can type:
                       placeholder={activeConversation?._id === 'ai-assistant' ? "Ask the AI assistant..." : "Type a message..."}
                       value={messageInput}
                       onChange={handleTyping}
-                      className="flex-1 px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 focus:border-brandTeal focus:outline-none text-sm text-white"
+                      className={`flex-1 px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 focus:border-brandTeal focus:outline-none text-white ${isMobileView ? 'text-base' : 'text-sm'}`}
                     />
                   )}
 
@@ -6050,6 +6060,111 @@ How can I help you today? You can type:
       {playingPreviewTrack && (
         <audio src={playingPreviewTrack} autoPlay onEnded={() => setPlayingPreviewTrack(null)} />
       )}
+      {showDownloadModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="glass-card max-w-2xl w-full p-6 rounded-3xl border border-gray-800 shadow-glass space-y-6 animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-900 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-brandTeal/10 text-brandTeal">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="font-extrabold text-base text-white block">Download VChats App</span>
+                  <span className="text-[10px] text-gray-500 block">Get the native application experience on all systems</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDownloadModal(false)}
+                className="p-2 rounded-xl bg-gray-900 hover:bg-gray-850 text-gray-400 hover:text-white transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* PC / Laptop */}
+              <div className="bg-gray-900/40 p-5 rounded-2xl border border-gray-900/50 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2.5">
+                    <Monitor className="w-5 h-5 text-brandTeal" />
+                    <span className="font-extrabold text-sm text-white">Computers (Windows, Mac, Linux)</span>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Install VChats as a native desktop application with support for taskbar docking, auto-start, and system notifications.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  {deferredPrompt ? (
+                    <button
+                      onClick={() => {
+                        handleInstallApp();
+                        setShowDownloadModal(false);
+                      }}
+                      className="w-full py-2.5 px-4 rounded-xl bg-brandTeal hover:bg-brandTeal-dark text-white font-bold text-xs shadow-lg hover:shadow-brandTeal/20 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Download className="w-4 h-4" /> Install Desktop App
+                    </button>
+                  ) : (
+                    <div className="space-y-2 text-center p-3 bg-gray-950/40 border border-gray-900/60 rounded-xl">
+                      <span className="text-[10px] font-bold text-brandTeal block">Browser-based Installation</span>
+                      <p className="text-[10px] text-gray-500 leading-relaxed">
+                        To download on PC, click the **Install icon** `⊕` or **Install VChats** option in your browser's address bar.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Mobile Devices */}
+              <div className="bg-gray-900/40 p-5 rounded-2xl border border-gray-900/50 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2.5">
+                    <Smartphone className="w-5 h-5 text-brandViolet" />
+                    <span className="font-extrabold text-sm text-white">Smartphones (Android & iOS)</span>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Install VChats directly onto your mobile home screen to receive real-time call notifications and view the layout perfectly as a full-screen app.
+                  </p>
+                </div>
+                <div className="pt-2 space-y-2">
+                  {deferredPrompt ? (
+                    <button
+                      onClick={() => {
+                        handleInstallApp();
+                        setShowDownloadModal(false);
+                      }}
+                      className="w-full py-2.5 px-4 rounded-xl bg-brandViolet hover:bg-brandViolet-dark text-white font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2"
+                    >
+                      <Download className="w-4 h-4" /> Install Android App
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-gray-950/40 border border-gray-900/60 rounded-xl text-left space-y-1">
+                        <span className="text-[10px] font-bold text-pink-400 block">Apple iOS (Safari)</span>
+                        <p className="text-[9px] text-gray-500 leading-normal">
+                          1. Open this website in Safari.<br />
+                          2. Tap the **Share** button (box with an up arrow) at the bottom.<br />
+                          3. Select **Add to Home Screen** from the list.<br />
+                          4. Tap **Add** in the top right to download.
+                        </p>
+                      </div>
+                      <div className="p-2.5 bg-gray-950/40 border border-gray-900/60 rounded-xl text-left space-y-1">
+                        <span className="text-[10px] font-bold text-brandTeal block">Android (Chrome)</span>
+                        <p className="text-[9px] text-gray-500 leading-normal">
+                          Tap the **three dots menu** at the top right of Chrome, and select **Add to Home screen** or **Install app**.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Group Modal */}
       {showEditGroupModal && activeConversation && activeConversation.type === 'group' && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
