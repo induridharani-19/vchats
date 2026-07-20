@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { authStart, authSuccess, authFailure, logoutSuccess } from '../redux/authSlice';
 import { api } from '../services/api';
 import { RootState } from '../redux/store';
-import { Eye, EyeOff, Lock, User as UserIcon, Fingerprint } from 'lucide-react';
+import { Eye, EyeOff, Lock, User as UserIcon, Fingerprint, Download, Smartphone, Monitor, X } from 'lucide-react';
 
 const loginSchema = z.object({
   identifier: z.string().min(1, 'Username or Email is required'),
@@ -26,6 +26,27 @@ const Login: React.FC = () => {
   const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [biometricStatus, setBiometricStatus] = useState<'scanning' | 'success' | 'failed'>('scanning');
   const [localError, setLocalError] = useState<string | null>(null);
+  
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   const {
     register,
@@ -249,6 +270,17 @@ const Login: React.FC = () => {
               </button>
             </div>
           </form>
+
+          {/* Download App Option */}
+          <div className="mt-6 pt-6 border-t border-gray-800 text-center">
+            <button
+              type="button"
+              onClick={() => setShowDownloadModal(true)}
+              className="text-xs text-brandTeal hover:underline inline-flex items-center gap-1.5 font-semibold"
+            >
+              <Download className="w-3.5 h-3.5" /> Download App for PC & Mobile
+            </button>
+          </div>
         </div>
 
         {/* Footer Link */}
@@ -284,6 +316,114 @@ const Login: React.FC = () => {
               {biometricStatus === 'success' && 'Logging you in securely.'}
               {biometricStatus === 'failed' && 'Please use your password or try again.'}
             </p>
+          </div>
+        </div>
+      )}
+
+      {showDownloadModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="glass-card max-w-2xl w-full p-6 rounded-3xl border border-gray-800 shadow-glass space-y-6 animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-900 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-brandTeal/10 text-brandTeal">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="font-extrabold text-base text-white block text-left">Download VChats App</span>
+                  <span className="text-[10px] text-gray-500 block text-left">Get the native application experience on all systems</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDownloadModal(false)}
+                className="p-2 rounded-xl bg-gray-900 hover:bg-gray-850 text-gray-400 hover:text-white transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* PC / Laptop */}
+              <div className="bg-gray-900/40 p-5 rounded-2xl border border-gray-900/50 flex flex-col justify-between space-y-4 text-left">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2.5">
+                    <Monitor className="w-5 h-5 text-brandTeal" />
+                    <span className="font-extrabold text-sm text-white">Computers (Windows, Mac, Linux)</span>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Install VChats as a native desktop application with support for taskbar docking, auto-start, and system notifications.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  {deferredPrompt ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleInstallApp();
+                        setShowDownloadModal(false);
+                      }}
+                      className="w-full py-2.5 px-4 rounded-xl bg-brandTeal hover:bg-brandTeal-dark text-white font-bold text-xs shadow-lg hover:shadow-brandTeal/20 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Download className="w-4 h-4" /> Install Desktop App
+                    </button>
+                  ) : (
+                    <div className="space-y-2 text-center p-3 bg-gray-950/40 border border-gray-900/60 rounded-xl">
+                      <span className="text-[10px] font-bold text-brandTeal block">Browser-based Installation</span>
+                      <p className="text-[10px] text-gray-500 leading-relaxed">
+                        To download on PC, click the **Install icon** `⊕` or **Install VChats** option in your browser's address bar.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Mobile Devices */}
+              <div className="bg-gray-900/40 p-5 rounded-2xl border border-gray-900/50 flex flex-col justify-between space-y-4 text-left">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2.5">
+                    <Smartphone className="w-5 h-5 text-brandViolet" />
+                    <span className="font-extrabold text-sm text-white">Smartphones (Android & iOS)</span>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Install VChats directly onto your mobile home screen to receive real-time call notifications and view the layout perfectly as a full-screen app.
+                  </p>
+                </div>
+                <div className="pt-2 space-y-2">
+                  {deferredPrompt ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleInstallApp();
+                        setShowDownloadModal(false);
+                      }}
+                      className="w-full py-2.5 px-4 rounded-xl bg-brandViolet hover:bg-brandViolet-dark text-white font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2"
+                    >
+                      <Download className="w-4 h-4" /> Install Android App
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-gray-950/40 border border-gray-900/60 rounded-xl text-left space-y-1">
+                        <span className="text-[10px] font-bold text-pink-400 block">Apple iOS (Safari)</span>
+                        <p className="text-[9px] text-gray-500 leading-normal">
+                          1. Open this website in Safari.<br />
+                          2. Tap the **Share** button (box with an up arrow) at the bottom.<br />
+                          3. Select **Add to Home Screen** from the list.<br />
+                          4. Tap **Add** in the top right to download.
+                        </p>
+                      </div>
+                      <div className="p-2.5 bg-gray-950/40 border border-gray-900/60 rounded-xl text-left space-y-1">
+                        <span className="text-[10px] font-bold text-brandTeal block">Android (Chrome)</span>
+                        <p className="text-[9px] text-gray-500 leading-normal">
+                          Tap the **three dots menu** at the top right of Chrome, and select **Add to Home screen** or **Install app**.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

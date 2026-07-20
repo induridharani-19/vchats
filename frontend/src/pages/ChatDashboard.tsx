@@ -111,7 +111,7 @@ const ChatDashboard: React.FC = () => {
   // Redux States
   const { user } = useSelector((state: RootState) => state.auth);
   const currentUserId = user?._id || (user as any)?.id || '';
-  const { conversations, activeConversation, messages, onlineUsers } = useSelector(
+  const { conversations, activeConversation, messages, onlineUsers, typingStatus } = useSelector(
     (state: RootState) => state.chat
   );
   const callState = useSelector((state: RootState) => state.call);
@@ -833,6 +833,24 @@ How can I help you today? You can type:
   };
 
 
+  const getTypingText = () => {
+    if (!activeConversation || !typingStatus?.[activeConversation._id]) return null;
+    const typingUsers = Object.values(typingStatus[activeConversation._id]).filter(
+      (username) => username && username !== user?.username
+    );
+    if (typingUsers.length === 0) return null;
+    if (typingUsers.length === 1) return `${typingUsers[0]} is typing...`;
+    return `${typingUsers.length} people are typing...`;
+  };
+
+  const isPeerTyping = () => {
+    if (!activeConversation || !typingStatus?.[activeConversation._id] || activeConversation.type === 'group') return false;
+    const typingUsers = Object.keys(typingStatus[activeConversation._id]).filter(
+      (uid) => uid !== currentUserId
+    );
+    return typingUsers.length > 0;
+  };
+
   // Trigger outbound call
   const triggerCall = (type: 'voice' | 'video') => {
     if (!socket || !activeConversation || !user) return;
@@ -877,16 +895,20 @@ How can I help you today? You can type:
         .catch(console.error);
 
     } else {
-      const receiver = activeConversation.participants.find((p) => p._id !== currentUserId);
-      if (!receiver) return;
+      const receiver = activeConversation.participants.find((p) => {
+        const pId = typeof p === 'object' ? p._id || (p as any).id : p;
+        return pId && currentUserId && pId.toString() !== currentUserId.toString();
+      });
+      const receiverId = typeof receiver === 'object' && receiver ? (receiver._id || (receiver as any).id) : receiver;
+      if (!receiverId) return;
 
       dispatch(
         startCall({
           receiver: {
-            id: receiver._id,
-            username: receiver.username,
-            displayName: receiver.displayName,
-            profilePhoto: receiver.profilePhoto,
+            id: receiverId,
+            username: typeof receiver === 'object' ? receiver.username : '',
+            displayName: typeof receiver === 'object' ? receiver.displayName : '',
+            profilePhoto: typeof receiver === 'object' ? receiver.profilePhoto : '',
           },
           callType: type,
           callId,
@@ -895,14 +917,14 @@ How can I help you today? You can type:
       );
 
       socket.emit('call-start', {
-        targetUserId: receiver._id,
+        targetUserId: receiverId,
         callType: type,
         callId,
         conversationId: activeConversation._id,
       });
 
       api.post('/calls/log', {
-        receiverId: receiver._id,
+        receiverId: receiverId,
         conversationId: activeConversation._id,
         type,
         status: 'initiated',
@@ -2477,9 +2499,22 @@ How can I help you today? You can type:
                             )}
                           </div>
                           <div className="flex items-center justify-between mt-0.5">
-                            <p className={`text-gray-400 truncate flex-1 pr-2 ${isMobileView ? 'text-sm' : 'text-xs'}`}>
-                              {conv.lastMessage && typeof conv.lastMessage === 'object' ? conv.lastMessage.content : 'No messages yet'}
-                            </p>
+                            {(() => {
+                              const convTyping = typingStatus?.[conv._id];
+                              const typingUsers = convTyping ? Object.keys(convTyping).filter(uid => uid !== currentUserId) : [];
+                              if (typingUsers.length > 0) {
+                                return (
+                                  <p className={`text-brandTeal font-bold truncate flex-1 pr-2 animate-pulse ${isMobileView ? 'text-sm' : 'text-xs'}`}>
+                                    typing...
+                                  </p>
+                                );
+                              }
+                              return (
+                                <p className={`text-gray-400 truncate flex-1 pr-2 ${isMobileView ? 'text-sm' : 'text-xs'}`}>
+                                  {conv.lastMessage && typeof conv.lastMessage === 'object' ? conv.lastMessage.content : 'No messages yet'}
+                                </p>
+                              );
+                            })()}
                             {conv.unreadCounts?.[currentUserId] > 0 && (
                               <span className="w-5 h-5 rounded-full bg-brandTeal flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-md animate-pulse">
                                 {conv.unreadCounts[currentUserId]}
@@ -3597,8 +3632,10 @@ How can I help you today? You can type:
                     {getConversationTitle(activeConversation, currentUserId)}
                   </span>
                   {activeConversation.type !== 'group' && (
-                    <span className={`text-gray-500 flex items-center gap-1 ${isMobileView ? 'text-xs' : 'text-[10px]'}`}>
-                      {(() => {
+                    <span className={`flex items-center gap-1 ${isMobileView ? 'text-xs' : 'text-[10px]'} ${isPeerTyping() ? 'text-brandTeal font-bold animate-pulse' : 'text-gray-500'}`}>
+                      {isPeerTyping() ? (
+                        'typing...'
+                      ) : (() => {
                         const peer = activeConversation.participants.find((p) => {
                           const pId = typeof p === 'object' ? p._id || (p as any).id : p;
                           return pId && currentUserId && pId.toString() !== currentUserId.toString();
@@ -3978,7 +4015,7 @@ How can I help you today? You can type:
                                 }
                               }
                             }}
-                            className={`max-w-md px-4 py-3 rounded-2xl relative shadow-md ${
+                            className={`max-w-[78%] md:max-w-md px-4 py-3 rounded-2xl relative shadow-md ${
                               isSelectMode ? 'cursor-pointer select-none hover:opacity-90' : ''
                             } ${
                               isMe
@@ -4098,6 +4135,16 @@ How can I help you today? You can type:
                       </div>
                     );
                   })}
+                  {getTypingText() && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 pl-4 py-1 animate-pulse">
+                      <div className="flex gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-brandTeal animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-brandTeal animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-brandTeal animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                      <span>{getTypingText()}</span>
+                    </div>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
 
