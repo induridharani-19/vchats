@@ -36,7 +36,12 @@ self.addEventListener('activate', (event) => {
 
 // Fetch Event with Stale-While-Revalidate and bypass list for WebSockets/API
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  let url;
+  try {
+    url = new URL(event.request.url);
+  } catch (err) {
+    return; // Bypass caching for invalid or non-standard URLs
+  }
 
   // Bypass non-GET, API routes, and Socket.io real-time traffic
   if (
