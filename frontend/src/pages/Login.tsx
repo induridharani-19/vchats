@@ -25,6 +25,7 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [biometricStatus, setBiometricStatus] = useState<'scanning' | 'success' | 'failed'>('scanning');
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const {
     register,
@@ -36,6 +37,7 @@ const Login: React.FC = () => {
 
   const onSubmit = async (data: LoginFormData) => {
     dispatch(authStart());
+    setLocalError(null);
     try {
       // Get browser details for device logs
       const deviceName = `${(navigator as any).userAgentData?.brands?.[0]?.brand || 'Browser'} on ${(navigator as any).userAgentData?.platform || 'OS'}`;
@@ -75,9 +77,10 @@ const Login: React.FC = () => {
   };
 
   const handleBiometricLogin = async () => {
+    setLocalError(null);
     const credsStr = localStorage.getItem('vchats_biometric_credentials');
     if (!credsStr) {
-      alert("No biometric login configured. Please login with your username/password first to set up fingerprint sign-in.");
+      setLocalError("No biometric login configured. Please login with your username/password first to set up fingerprint sign-in.");
       return;
     }
 
@@ -152,9 +155,9 @@ const Login: React.FC = () => {
 
         {/* Card */}
         <div className="glass-card p-8 rounded-3xl border border-gray-800 shadow-glass">
-          {error && (
+          {(error || localError) && (
             <div className="mb-6 p-4 rounded-xl bg-red-950/40 border border-red-900/60 text-red-400 text-sm">
-              {error}
+              {error || localError}
             </div>
           )}
 
