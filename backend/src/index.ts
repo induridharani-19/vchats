@@ -99,6 +99,15 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// Root health check endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'VChats API Server is live and running!',
+    timestamp: new Date(),
+  });
+});
+
 // Register Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
