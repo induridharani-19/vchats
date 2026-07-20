@@ -56,7 +56,41 @@ export const uploadToCloudinary = async (
   const isMock = !process.env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY.includes('your_');
 
   if (isMock) {
-    // Return local mock url
+    try {
+      const stats = fs.statSync(filePath);
+      const fileSizeInMB = stats.size / (1024 * 1024);
+      const isImage = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'].includes(path.extname(filePath).toLowerCase());
+
+      if (isImage && fileSizeInMB < 5) {
+        const mimeTypes: { [key: string]: string } = {
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.gif': 'image/gif',
+          '.svg': 'image/svg+xml',
+          '.webp': 'image/webp',
+        };
+        const ext = path.extname(filePath).toLowerCase();
+        const mimeType = mimeTypes[ext] || 'image/jpeg';
+
+        const fileData = fs.readFileSync(filePath);
+        const base64Data = fileData.toString('base64');
+        const dataUri = `data:${mimeType};base64,${base64Data}`;
+
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+
+        console.log(`[MOCK UPLOAD] File converted to Base64 Data URI persistently.`);
+        return {
+          url: dataUri,
+          publicId: `mock-base64-${Date.now()}`,
+        };
+      }
+    } catch (err) {
+      console.error('[MOCK UPLOAD] Failed base64 conversion fallback:', err);
+    }
+
     const fileName = path.basename(filePath);
     console.log(`[MOCK UPLOAD] File ${fileName} stored locally. Mocking Cloudinary URL.`);
     return {

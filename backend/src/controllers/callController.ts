@@ -92,8 +92,12 @@ export const createCallRecord = async (
       }
 
       const io = req.app.get('io');
-      if (io) {
+      if (io && conversation) {
         io.to(conversationId.toString()).emit('message-receive', message);
+        conversation.participants.forEach((pId) => {
+          io.to(pId.toString()).emit('message-receive', message);
+        });
+
         const populatedConversation = await Conversation.findById(conversationId)
           .populate('participants', 'username displayName profilePhoto status lastSeen email bio about')
           .populate({
@@ -101,7 +105,10 @@ export const createCallRecord = async (
             populate: { path: 'senderId', select: 'username displayName profilePhoto' }
           });
         if (populatedConversation) {
-          io.to(conversationId.toString()).emit('conversation-update', populatedConversation);
+          populatedConversation.participants.forEach((p: any) => {
+            const pId = p._id || p;
+            io.to(pId.toString()).emit('conversation-update', populatedConversation);
+          });
         }
       }
 
@@ -175,7 +182,11 @@ export const updateCallRecord = async (
               populate: { path: 'senderId', select: 'username displayName profilePhoto' }
             });
           if (populatedConversation) {
-            io.to(call.conversationId.toString()).emit('conversation-update', populatedConversation);
+            populatedConversation.participants.forEach((p: any) => {
+              const pId = p._id || p;
+              io.to(pId.toString()).emit('message-receive', message);
+              io.to(pId.toString()).emit('conversation-update', populatedConversation);
+            });
           }
         }
       }

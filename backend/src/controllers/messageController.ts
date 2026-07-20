@@ -140,6 +140,9 @@ export const sendMessage = async (
       const io: Server = req.app.get('io');
       if (io) {
         io.to(conversationId).emit('message-receive', message);
+        conversation.participants.forEach((pId) => {
+          io.to(pId.toString()).emit('message-receive', message);
+        });
         
         // Send conversation list update broadcast (fully populated)
         const populatedConversation = await Conversation.findById(conversation._id)
