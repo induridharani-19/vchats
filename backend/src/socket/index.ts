@@ -96,7 +96,7 @@ export const initSocket = (server: HttpServer): Server => {
     // 4. WebRTC Signaling Events (Audio/Video Calling)
     socket.on('call-start', ({ targetUserId, callType, callId, conversationId }) => {
       // Forward call initiation alert to all active sockets of the target user
-      socket.to(targetUserId).emit('call-incoming', {
+      io.to(targetUserId).emit('call-incoming', {
         caller: {
           id: user._id,
           username: user.username,
@@ -110,21 +110,21 @@ export const initSocket = (server: HttpServer): Server => {
     });
 
     socket.on('call-accept', ({ callerId, callId }) => {
-      socket.to(callerId).emit('call-accepted', { callId, receiverId: userId });
+      io.to(callerId).emit('call-accepted', { callId, receiverId: userId });
     });
 
     socket.on('call-reject', ({ callerId, callId }) => {
-      socket.to(callerId).emit('call-rejected', { callId, receiverId: userId });
+      io.to(callerId).emit('call-rejected', { callId, receiverId: userId });
     });
 
     socket.on('call-end', ({ targetUserId, callId, duration }) => {
-      socket.to(targetUserId).emit('call-ended', { callId, duration });
+      io.to(targetUserId).emit('call-ended', { callId, duration });
     });
 
     socket.on('group-call-start', ({ participants, callType, callId, conversationId, groupName }) => {
       participants.forEach((pId: string) => {
         if (pId !== userId) {
-          socket.to(pId).emit('group-call-incoming', {
+          io.to(pId).emit('group-call-incoming', {
             caller: {
               id: user._id,
               username: user.username,
@@ -151,19 +151,19 @@ export const initSocket = (server: HttpServer): Server => {
     });
 
     socket.on('webrtc-offer', ({ targetUserId, offer }) => {
-      socket.to(targetUserId).emit('webrtc-offer', { senderId: userId, offer });
+      io.to(targetUserId).emit('webrtc-offer', { senderId: userId, offer });
     });
 
     socket.on('webrtc-answer', ({ targetUserId, answer }) => {
-      socket.to(targetUserId).emit('webrtc-answer', { senderId: userId, answer });
+      io.to(targetUserId).emit('webrtc-answer', { senderId: userId, answer });
     });
 
     socket.on('webrtc-ice-candidate', ({ targetUserId, candidate }) => {
-      socket.to(targetUserId).emit('webrtc-ice-candidate', { senderId: userId, candidate });
+      io.to(targetUserId).emit('webrtc-ice-candidate', { senderId: userId, candidate });
     });
 
     socket.on('call-reaction', ({ targetUserId, reaction }) => {
-      socket.to(targetUserId).emit('call-reaction', { senderId: userId, reaction });
+      io.to(targetUserId).emit('call-reaction', { senderId: userId, reaction });
     });
 
     // 5. Disconnect
