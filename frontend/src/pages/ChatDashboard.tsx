@@ -5037,7 +5037,7 @@ How can I help you today? You can type:
                       className="p-4 rounded-full bg-brandTeal hover:bg-brandTeal-dark text-white shadow-lg flex items-center justify-center transition-all hover:scale-105"
                       title="Answer Call"
                     >
-                      <Video className="w-6 h-6" />
+                      {callState.callType === 'video' ? <Video className="w-6 h-6" /> : <Phone className="w-6 h-6" />}
                     </button>
                     <button
                       onClick={handleRejectCall}
