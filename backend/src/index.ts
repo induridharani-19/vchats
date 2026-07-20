@@ -50,6 +50,7 @@ app.use(helmet({
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  'https://vchatss.vercel.app',
   'http://localhost:5173',
   'http://localhost:5180',
   'http://localhost:3000',
@@ -64,7 +65,7 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    const isAllowed = allowedOrigins.some((allowed) => allowed && origin === allowed) || origin.endsWith('.vercel.app');
+    const isAllowed = allowedOrigins.some((allowed) => allowed && origin === allowed) || origin.includes('vercel.app');
     if (isAllowed) {
       callback(null, true);
     } else {

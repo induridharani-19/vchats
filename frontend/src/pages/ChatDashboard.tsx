@@ -814,8 +814,9 @@ How can I help you today? You can type:
 
   // Mark new messages seen as they arrive in real-time
   useEffect(() => {
-    if (activeConversation && activeConversation._id !== 'ai-assistant' && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
+    const currentMessages = messages || [];
+    if (activeConversation && activeConversation._id !== 'ai-assistant' && currentMessages.length > 0) {
+      const lastMessage = currentMessages[currentMessages.length - 1];
       const isPeerMessage = lastMessage.senderId._id !== currentUserId && lastMessage.senderId !== currentUserId;
       const alreadySeen = lastMessage.seenBy?.some((s: any) => {
         const sUid = typeof s === 'object' ? s.userId?._id || s.userId || s : s;
@@ -1355,7 +1356,7 @@ How can I help you today? You can type:
     try {
       if (type === 'me') {
         await api.delete(`/messages/${messageId}/me`);
-        dispatch(setMessages(messages.filter((m) => m._id !== messageId)));
+         dispatch(setMessages((messages || []).filter((m) => m._id !== messageId)));
       } else {
         if (!window.confirm('Delete this message for everyone?')) return;
         const res = await api.delete(`/messages/${messageId}/everyone`);
@@ -1474,7 +1475,7 @@ How can I help you today? You can type:
       for (const msgId of selectedMessageIds) {
         await api.delete(`/messages/${msgId}/me`);
       }
-      const updatedMessages = messages.filter((m) => !selectedMessageIds.includes(m._id));
+      const updatedMessages = (messages || []).filter((m) => !selectedMessageIds.includes(m._id));
       dispatch(setMessages(updatedMessages));
       alert("Selected messages deleted.");
     } catch (err) {
@@ -3938,7 +3939,7 @@ How can I help you today? You can type:
                     backgroundBlendMode: activeConversation.themeColor ? 'multiply' : 'normal',
                   }}
                 >
-                  {(activeConversation._id === 'ai-assistant' ? aiMessages : messages)
+                  {(activeConversation._id === 'ai-assistant' ? aiMessages : (messages || []))
                     .filter((msg) => !msg.deletedFor?.includes(currentUserId))
                     .filter((msg) => {
                       if (!chatSearchQuery.trim()) return true;
@@ -4511,7 +4512,7 @@ How can I help you today? You can type:
                       {/* Tab Content */}
                       <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
                         {mediaTab === 'media' && (() => {
-                          const mediaMsgs = messages.filter((m) => (m.type === 'image' || m.type === 'video') && m.fileUrl);
+                          const mediaMsgs = (messages || []).filter((m) => (m.type === 'image' || m.type === 'video') && m.fileUrl);
                           if (mediaMsgs.length === 0) {
                             return <div className="text-center text-xs text-gray-500 py-12">No media shared yet.</div>;
                           }
@@ -4540,7 +4541,7 @@ How can I help you today? You can type:
                         })()}
 
                         {mediaTab === 'docs' && (() => {
-                          const docMsgs = messages.filter((m) => m.type === 'document' && m.fileUrl);
+                          const docMsgs = (messages || []).filter((m) => m.type === 'document' && m.fileUrl);
                           if (docMsgs.length === 0) {
                             return <div className="text-center text-xs text-gray-500 py-12">No docs shared yet.</div>;
                           }
@@ -4587,7 +4588,7 @@ How can I help you today? You can type:
 
                         {mediaTab === 'links' && (() => {
                           const linkRegex = /(https?:\/\/[^\s]+)/g;
-                          const linkMsgs = messages.filter((m) => m.content && linkRegex.test(m.content));
+                          const linkMsgs = (messages || []).filter((m) => m.content && linkRegex.test(m.content));
                           if (linkMsgs.length === 0) {
                             return <div className="text-center text-xs text-gray-500 py-12">No links shared yet.</div>;
                           }
