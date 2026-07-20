@@ -18,6 +18,7 @@ const registerSchema = z
       .regex(/^[a-zA-Z0-9_]+$/, 'Only letters, numbers, and underscores are allowed'),
     displayName: z.string().min(1, 'Display Name is required').trim(),
     email: z.string().email('Please enter a valid email address'),
+    gender: z.enum(['male', 'female', 'other']).default('male'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string().min(6, 'Please confirm your password'),
   })
@@ -36,10 +37,17 @@ const Register: React.FC = () => {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      gender: 'male',
+    },
   });
+
+  const selectedGender = watch('gender');
 
   const onSubmit = async (data: RegisterFormData) => {
     dispatch(authStart());
@@ -49,6 +57,7 @@ const Register: React.FC = () => {
         email: data.email,
         password: data.password,
         displayName: data.displayName,
+        gender: data.gender,
       });
 
       // Clear auth store state first
@@ -101,6 +110,7 @@ const Register: React.FC = () => {
                 </div>
                 <input
                   type="text"
+                  autoComplete="name"
                   placeholder="John Doe"
                   {...register('displayName')}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-950/40 border border-gray-800 focus:border-brandTeal focus:outline-none text-gray-100 placeholder-gray-600 transition-colors text-sm"
@@ -122,6 +132,7 @@ const Register: React.FC = () => {
                 </div>
                 <input
                   type="text"
+                  autoComplete="username"
                   placeholder="johndoe"
                   {...register('username')}
                   className="w-full pl-8 pr-4 py-2.5 rounded-xl bg-gray-950/40 border border-gray-800 focus:border-brandTeal focus:outline-none text-gray-100 placeholder-gray-600 transition-colors text-sm"
@@ -143,6 +154,7 @@ const Register: React.FC = () => {
                 </div>
                 <input
                   type="email"
+                  autoComplete="email"
                   placeholder="john@example.com"
                   {...register('email')}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-950/40 border border-gray-800 focus:border-brandTeal focus:outline-none text-gray-100 placeholder-gray-600 transition-colors text-sm"
@@ -151,6 +163,29 @@ const Register: React.FC = () => {
               {errors.email && (
                 <span className="text-red-500 text-xs mt-1 block">{errors.email.message}</span>
               )}
+            </div>
+
+            {/* Gender Selection */}
+            <div>
+              <label className="block text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1.5">
+                Gender (For Default Avatar)
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['male', 'female', 'other'] as const).map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setValue('gender', g)}
+                    className={`py-2 rounded-xl text-xs font-bold capitalize transition-all border ${
+                      selectedGender === g
+                        ? 'bg-brandTeal/20 text-brandTeal border-brandTeal'
+                        : 'bg-gray-950/40 text-gray-400 border-gray-800 hover:bg-gray-900'
+                    }`}
+                  >
+                    {g === 'male' ? '👨 Male' : g === 'female' ? '👩 Female' : '🧑 Other'}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Password */}
@@ -164,6 +199,7 @@ const Register: React.FC = () => {
                 </div>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   {...register('password')}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-950/40 border border-gray-800 focus:border-brandTeal focus:outline-none text-gray-100 placeholder-gray-600 transition-colors text-sm"
@@ -185,6 +221,7 @@ const Register: React.FC = () => {
                 </div>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   {...register('confirmPassword')}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-950/40 border border-gray-800 focus:border-brandTeal focus:outline-none text-gray-100 placeholder-gray-600 transition-colors text-sm"

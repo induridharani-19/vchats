@@ -6,19 +6,25 @@ export interface IUser extends Document {
   passwordHash: string;
   displayName: string;
   profilePhoto: string;
+  gender?: 'male' | 'female' | 'other';
   about: string;
   status: 'online' | 'offline';
   bio: string;
+  birthday?: Date;
   themePreference: 'light' | 'dark';
   lastSeen: Date;
   isVerified: boolean;
   isBlocked: boolean;
   isAdmin: boolean;
+  isBusinessAccount?: boolean;
   blockedUsers: mongoose.Types.ObjectId[];
   friends: mongoose.Types.ObjectId[];
+  favoriteContacts?: mongoose.Types.ObjectId[];
+  starredMessages?: mongoose.Types.ObjectId[];
   twoFactorEnabled: boolean;
   twoFactorSecret: string;
   chatLockPin?: string;
+  secretCode?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,7 +58,12 @@ const UserSchema: Schema = new Schema(
     },
     profilePhoto: {
       type: String,
-      default: '', // will be Cloudinary URL
+      default: '',
+    },
+    gender: {
+      type: String,
+      enum: ['male', 'female', 'other'],
+      default: 'male',
     },
     about: {
       type: String,
@@ -68,6 +79,9 @@ const UserSchema: Schema = new Schema(
       type: String,
       default: '',
       maxlength: 500,
+    },
+    birthday: {
+      type: Date,
     },
     themePreference: {
       type: String,
@@ -90,6 +104,10 @@ const UserSchema: Schema = new Schema(
       type: Boolean,
       default: false,
     },
+    isBusinessAccount: {
+      type: Boolean,
+      default: false,
+    },
     blockedUsers: [
       {
         type: Schema.Types.ObjectId,
@@ -100,6 +118,18 @@ const UserSchema: Schema = new Schema(
       {
         type: Schema.Types.ObjectId,
         ref: 'User',
+      },
+    ],
+    favoriteContacts: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    starredMessages: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Message',
       },
     ],
     twoFactorEnabled: {
@@ -114,13 +144,16 @@ const UserSchema: Schema = new Schema(
       type: String,
       default: '',
     },
+    secretCode: {
+      type: String,
+      default: '',
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Add index on username and email for faster queries
 UserSchema.index({ username: 1, email: 1 });
 
 export default mongoose.model<IUser>('User', UserSchema);

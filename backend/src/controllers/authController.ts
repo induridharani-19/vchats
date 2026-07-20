@@ -19,7 +19,7 @@ const generateNumericOtp = (): string => {
 // Register handler
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { username, email, password, displayName } = req.body;
+    const { username, email, password, displayName, gender = 'male' } = req.body;
 
     // Check if user exists
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
@@ -41,6 +41,7 @@ export const register = async (req: Request, res: Response, next: NextFunction):
       email,
       passwordHash,
       displayName,
+      gender,
       isVerified: false,
     });
 

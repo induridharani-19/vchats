@@ -10,17 +10,29 @@ export interface IEmbeddedReaction {
   emoji: string;
 }
 
+export interface IPollOption {
+  id: string;
+  text: string;
+  votes: mongoose.Types.ObjectId[];
+}
+
 export interface IMessage extends Document {
   conversationId: mongoose.Types.ObjectId;
   senderId: mongoose.Types.ObjectId;
   content: string;
-  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'location' | 'contact';
+  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'location' | 'contact' | 'poll' | 'payment';
   fileUrl?: string;
   fileName?: string;
   fileSize?: number;
   seenBy: IReceipt[];
   deliveredTo: IReceipt[];
   reactions: IEmbeddedReaction[];
+  pollOptions?: IPollOption[];
+  isViewOnce?: boolean;
+  isViewedOnce?: boolean;
+  starredBy?: mongoose.Types.ObjectId[];
+  paymentAmount?: number;
+  paymentStatus?: string;
   replyTo?: mongoose.Types.ObjectId;
   forwarded: boolean;
   isEdited: boolean;
@@ -51,7 +63,7 @@ const MessageSchema: Schema = new Schema(
     },
     type: {
       type: String,
-      enum: ['text', 'image', 'video', 'audio', 'document', 'location', 'contact'],
+      enum: ['text', 'image', 'video', 'audio', 'document', 'location', 'contact', 'poll', 'payment'],
       default: 'text',
     },
     fileUrl: {
@@ -81,6 +93,33 @@ const MessageSchema: Schema = new Schema(
         emoji: { type: String, required: true },
       },
     ],
+    pollOptions: [
+      {
+        id: { type: String, required: true },
+        text: { type: String, required: true },
+        votes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+      },
+    ],
+    isViewOnce: {
+      type: Boolean,
+      default: false,
+    },
+    isViewedOnce: {
+      type: Boolean,
+      default: false,
+    },
+    starredBy: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    paymentAmount: {
+      type: Number,
+    },
+    paymentStatus: {
+      type: String,
+    },
     replyTo: {
       type: Schema.Types.ObjectId,
       ref: 'Message',
@@ -119,8 +158,7 @@ const MessageSchema: Schema = new Schema(
   }
 );
 
-// Indexes for fast history loading and search
 MessageSchema.index({ conversationId: 1, createdAt: -1 });
-MessageSchema.index({ content: 'text' }); // for message search
+MessageSchema.index({ content: 'text' });
 
 export default mongoose.model<IMessage>('Message', MessageSchema);

@@ -74,16 +74,83 @@ import { User, Conversation, Message, Story } from '../types';
 
 const DEFAULT_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236B7280'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
 
-const getFileUrl = (url?: string) => {
-  if (!url) return DEFAULT_AVATAR;
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+const getRandomAvatar = (seed: string = 'User', gender?: string) => {
+  const name = (seed || 'User').trim();
+  const initial = (name.charAt(0) || 'U').toUpperCase();
   
+  let bgGradient = ['#0f766e', '#14b8a6'];
+  let iconSvg = '';
+
+  const cleanGender = (gender || '').toLowerCase();
+  if (cleanGender === 'female') {
+    bgGradient = ['#831843', '#ec4899'];
+    iconSvg = `<circle cx="50" cy="38" r="18" fill="white" opacity="0.95"/>
+    <path d="M 50,38 C 44,28 34,32 30,42 C 34,44 42,42 50,38 Z" fill="%23ec4899"/>
+    <path d="M 22,82 C 22,62 34,56 50,56 C 66,56 78,62 78,82 Z" fill="white" opacity="0.95"/>`;
+  } else if (cleanGender === 'male') {
+    bgGradient = ['#1e3a8a', '#3b82f6'];
+    iconSvg = `<circle cx="50" cy="38" r="18" fill="white" opacity="0.95"/>
+    <path d="M 32,24 C 42,16 58,16 68,24 C 64,20 50,18 32,24 Z" fill="%233b82f6"/>
+    <path d="M 22,82 C 22,62 34,56 50,56 C 66,56 78,62 78,82 Z" fill="white" opacity="0.95"/>`;
+  } else {
+    const colors = [
+      ['#0f766e', '#14b8a6'],
+      ['#581c87', '#a855f7'],
+      ['#1e3a8a', '#3b82f6'],
+      ['#831843', '#ec4899'],
+      ['#7c2d12', '#f97316'],
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    bgGradient = colors[Math.abs(hash) % colors.length];
+    
+    iconSvg = `<text x="50" y="64" font-size="42" font-weight="900" font-family="system-ui, -apple-system, sans-serif" fill="white" text-anchor="middle">${initial}</text>`;
+  }
+
+  const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="128" height="128">
+    <defs>
+      <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${bgGradient[0]}"/>
+        <stop offset="100%" stop-color="${bgGradient[1]}"/>
+      </linearGradient>
+    </defs>
+    <rect width="100" height="100" rx="30" fill="url(#g)"/>
+    ${iconSvg}
+  </svg>`.replace(/\n/g, '').replace(/\s+/g, ' ');
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svgString)}`;
+};
+
+const getFileUrl = (url?: string, seedName?: string, gender?: string) => {
+  if (!url || typeof url !== 'string') {
+    return seedName ? getRandomAvatar(seedName, gender) : DEFAULT_AVATAR;
+  }
+  
+  const trimmed = url.trim();
+  if (!trimmed || trimmed === 'undefined' || trimmed === 'null' || trimmed === '[object Object]') {
+    return seedName ? getRandomAvatar(seedName, gender) : DEFAULT_AVATAR;
+  }
+
+  // Detect data URI anywhere in the string or if it starts with data: or blob:
+  const dataIndex = trimmed.toLowerCase().indexOf('data:image');
+  if (dataIndex !== -1) {
+    return trimmed.substring(dataIndex);
+  }
+  if (trimmed.toLowerCase().startsWith('data:') || trimmed.toLowerCase().startsWith('blob:')) {
+    return trimmed;
+  }
+
+  // Full HTTP/HTTPS URLs (e.g. Cloudinary)
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
   let backendBase = (import.meta.env.VITE_API_URL || 'http://localhost:5050/api/v1').replace('/api/v1', '');
   if (!backendBase.endsWith('/')) {
     backendBase = backendBase + '/';
   }
-  
-  const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
+
+  const cleanUrl = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
   return `${backendBase}${cleanUrl}`;
 };
 
@@ -2482,13 +2549,12 @@ How can I help you today? You can type:
                       >
                         {/* Avatar */}
                         <div className="relative">
-                          {avatar ? (
-                            <img src={getFileUrl(avatar)} alt="" className="w-11 h-11 rounded-xl object-cover" />
-                          ) : (
-                            <div className="w-11 h-11 rounded-xl bg-gray-800 flex items-center justify-center text-gray-500 font-bold">
-                              {title ? title.charAt(0).toUpperCase() : (isGroup ? 'G' : 'C')}
-                            </div>
-                          )}
+                          <img
+                            src={getFileUrl(avatar, title)}
+                            onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(title); }}
+                            alt=""
+                            className="w-11 h-11 rounded-xl object-cover"
+                          />
                           {isOnline && (
                             <span className="absolute bottom-0 right-0 w-3 h-3 bg-brandTeal rounded-full border-2 border-obsidian" />
                           )}
@@ -2581,7 +2647,8 @@ How can I help you today? You can type:
                       <div key={req._id} className="p-3 rounded-xl bg-gray-900/40 border border-gray-900 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <img
-                            src={getFileUrl(req.sender.profilePhoto)}
+                            src={getFileUrl(req.sender.profilePhoto, req.sender.displayName || req.sender.username)}
+                            onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(req.sender.displayName || req.sender.username); }}
                             alt=""
                             className="w-8 h-8 rounded-lg object-cover"
                           />
@@ -2623,7 +2690,8 @@ How can I help you today? You can type:
                       <div key={friend._id} className="p-2.5 hover:bg-gray-900 rounded-xl flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <img
-                            src={getFileUrl(friend.profilePhoto)}
+                            src={getFileUrl(friend.profilePhoto, friend.displayName || friend.username)}
+                            onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(friend.displayName || friend.username); }}
                             alt=""
                             className="w-9 h-9 rounded-lg object-cover"
                           />
@@ -2703,7 +2771,8 @@ How can I help you today? You can type:
                       >
                         <div className="w-12 h-12 rounded-full border-2 border-brandTeal p-0.5">
                           <img
-                            src={getFileUrl(item.user.profilePhoto)}
+                            src={getFileUrl(item.user.profilePhoto, item.user.displayName || item.user.username)}
+                            onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(item.user.displayName || item.user.username); }}
                             alt=""
                             className="w-full h-full rounded-full object-cover"
                           />
@@ -2773,7 +2842,12 @@ How can I help you today? You can type:
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         {profilePhoto ? (
-                          <img src={getFileUrl(profilePhoto)} onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }} alt="" className="w-10 h-10 rounded-xl object-cover shrink-0" />
+                          <img 
+                            src={getFileUrl(profilePhoto, displayName)} 
+                            onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(displayName); }} 
+                            alt="" 
+                            className="w-10 h-10 rounded-xl object-cover shrink-0" 
+                          />
                         ) : (
                           <div className="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center text-gray-500 font-bold shrink-0">
                             {isGroup ? 'G' : 'C'}
@@ -2884,7 +2958,8 @@ How can I help you today? You can type:
                       className="flex items-center gap-3 bg-gray-900/40 p-3.5 rounded-2xl border border-gray-900/50 hover:bg-gray-900 cursor-pointer transition-all"
                     >
                       <img
-                        src={getFileUrl(user?.profilePhoto)}
+                        src={getFileUrl(user?.profilePhoto, user?.displayName || user?.username)}
+                        onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(user?.displayName || user?.username || 'User'); }}
                         alt=""
                         className="w-12 h-12 rounded-xl object-cover"
                       />
@@ -2981,7 +3056,8 @@ How can I help you today? You can type:
                       <div className="flex flex-col items-center gap-3 bg-gray-900/30 p-4 rounded-2xl border border-gray-900">
                         <div className="w-20 h-20 rounded-2xl bg-teal-gradient p-0.5 relative group">
                           <img
-                            src={getFileUrl(user?.profilePhoto)}
+                            src={getFileUrl(user?.profilePhoto, user?.displayName || user?.username)}
+                            onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(user?.displayName || user?.username || 'User'); }}
                             alt=""
                             className="w-full h-full rounded-2xl object-cover"
                           />
@@ -3624,15 +3700,12 @@ How can I help you today? You can type:
                 )}
                 <div className="relative">
                   <div className="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center text-gray-500 font-bold overflow-hidden">
-                    {getConversationAvatar(activeConversation, currentUserId) ? (
                       <img
-                        src={getFileUrl(getConversationAvatar(activeConversation, currentUserId))}
+                        src={getFileUrl(getConversationAvatar(activeConversation, currentUserId), getConversationTitle(activeConversation, currentUserId))}
+                        onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(getConversationTitle(activeConversation, currentUserId)); }}
                         alt=""
                         className="w-full h-full object-cover"
                       />
-                    ) : (
-                      activeConversation.type === 'group' ? 'G' : 'C'
-                    )}
                   </div>
                 </div>
 
@@ -4647,15 +4720,12 @@ How can I help you today? You can type:
                     <div className="p-6 flex-1 flex flex-col gap-6">
                       <div className="flex flex-col items-center gap-2">
                         <div className="w-24 h-24 rounded-2xl bg-gray-800 flex items-center justify-center font-bold text-3xl text-gray-450 overflow-hidden shadow-lg border border-gray-850">
-                          {group.avatar ? (
-                            <img
-                              src={getFileUrl(group.avatar)}
-                              alt=""
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            group.name.charAt(0)
-                          )}
+                          <img
+                            src={getFileUrl(group.avatar, group.name)}
+                            onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(group.name); }}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                         <h4 className="font-extrabold text-base text-white text-center mt-2">{group.name}</h4>
                         <span className="text-xs text-gray-500 font-medium">Group Chat</span>
@@ -4678,11 +4748,12 @@ How can I help you today? You can type:
                             {activeConversation.participants.map((m) => (
                               <div key={m._id} className="flex items-center gap-2.5">
                                 <div className="w-6 h-6 rounded-full overflow-hidden bg-brandTeal/20 flex items-center justify-center font-extrabold text-[9px] text-white">
-                                  {m.profilePhoto ? (
-                                    <img src={getFileUrl(m.profilePhoto)} className="w-full h-full object-cover" />
-                                  ) : (
-                                    m.displayName.charAt(0)
-                                  )}
+                                  <img
+                                    src={getFileUrl(m.profilePhoto, m.displayName || m.username)}
+                                    onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(m.displayName || m.username); }}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                  />
                                 </div>
                                 <span className="text-xs text-gray-300 truncate flex-1">{m.displayName}</span>
                                 {m._id === currentUserId && <span className="text-[8px] bg-brandTeal/20 text-brandTeal px-1.5 py-0.5 rounded">You</span>}
@@ -4762,15 +4833,12 @@ How can I help you today? You can type:
                     <div className="p-6 flex-1 flex flex-col gap-6">
                       <div className="flex flex-col items-center gap-2">
                         <div className="w-24 h-24 rounded-2xl bg-gray-800 flex items-center justify-center font-bold text-3xl text-gray-450 overflow-hidden shadow-lg border border-gray-850">
-                          {peer.profilePhoto ? (
-                            <img
-                              src={getFileUrl(peer.profilePhoto)}
-                              alt=""
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            peer.displayName.charAt(0)
-                          )}
+                          <img
+                            src={getFileUrl(peer.profilePhoto, peer.displayName || peer.username)}
+                            onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(peer.displayName || peer.username); }}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                         <h4 className="font-extrabold text-base text-white text-center mt-2">{peer.displayName}</h4>
                         <span className="text-xs text-gray-500 font-medium">@{peer.username}</span>
@@ -4982,11 +5050,12 @@ How can I help you today? You can type:
                           <div className="absolute w-28 h-28 rounded-full bg-brandViolet/20 animate-ping" />
                           <div className="absolute w-24 h-24 rounded-full bg-brandViolet/40 animate-pulse" />
                           <div className="w-20 h-20 rounded-full bg-brandViolet flex items-center justify-center text-3xl font-bold text-white shadow-lg z-10 border border-brandViolet/50 overflow-hidden">
-                            {callState.peerUser?.profilePhoto ? (
-                              <img src={getFileUrl(callState.peerUser.profilePhoto)} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              callState.peerUser?.displayName?.charAt(0) || 'C'
-                            )}
+                            <img
+                              src={getFileUrl(callState.peerUser?.profilePhoto, callState.peerUser?.displayName || 'Caller')}
+                              onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(callState.peerUser?.displayName || 'Caller'); }}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
                           </div>
                         </div>
                         
@@ -5924,11 +5993,12 @@ How can I help you today? You can type:
             <div className="absolute top-6 left-3 right-3 z-30 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full border border-white/20 overflow-hidden bg-brandTeal flex items-center justify-center font-bold text-xs text-white">
-                  {activeStoryGroup.user.profilePhoto ? (
-                    <img src={getFileUrl(activeStoryGroup.user.profilePhoto)} className="w-full h-full object-cover" />
-                  ) : (
-                    activeStoryGroup.user.displayName.charAt(0)
-                  )}
+                  <img
+                    src={getFileUrl(activeStoryGroup.user.profilePhoto, activeStoryGroup.user.displayName || activeStoryGroup.user.username)}
+                    onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(activeStoryGroup.user.displayName || activeStoryGroup.user.username); }}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div>
                   <span className="block font-bold text-xs text-white leading-none mb-0.5">

@@ -467,3 +467,151 @@ export const markConversationAsSeen = async (
     next(error);
   }
 };
+
+// Vote on a poll option
+export const votePoll = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { messageId } = req.params;
+    const { optionId } = req.body;
+    const userId = req.user?._id;
+
+    const message = await Message.findById(messageId);
+    if (!message || message.type !== 'poll' || !message.pollOptions) {
+      return next(new AppError('Poll message not found.', 404));
+    }
+
+    message.pollOptions.forEach((option: any) => {
+      option.votes = option.votes.filter((vId: any) => vId.toString() !== userId.toString());
+      if (option.id === optionId) {
+        option.votes.push(userId);
+      }
+    });
+
+    await message.save();
+
+    const io: Server = req.app.get('io');
+    if (io) {
+      io.to(message.conversationId.toString()).emit('poll-updated', message);
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Toggle Star Message for user
+export const toggleStarMessage = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user?._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return next(new AppError('Message not found.', 404));
+    }
+
+    const index = message.starredBy?.findIndex((id: any) => id.toString() === userId.toString()) ?? -1;
+    if (index > -1) {
+      message.starredBy?.splice(index, 1);
+    } else {
+      if (!message.starredBy) message.starredBy = [];
+      message.starredBy.push(userId);
+    }
+
+    await message.save();
+
+    res.status(200).json({
+      status: 'success',
+      starred: message.starredBy.some((id: any) => id.toString() === userId.toString()),
+      message,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Fetch all starred messages for current user
+export const getStarredMessages = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user?._id;
+
+    const messages = await Message.find({
+      starredBy: userId,
+      deletedFor: { $ne: userId },
+      deletedForEveryone: false,
+    })
+      .populate('senderId', 'username displayName profilePhoto')
+      .populate('conversationId')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      status: 'success',
+      results: messages.length,
+      messages,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Export Chat History as text payload
+export const exportChat = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user?._id;
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+    });
+
+    if (!conversation) {
+      return next(new AppError('Conversation not found or access denied.', 404));
+    }
+
+    const messages = await Message.find({
+      conversationId,
+      deletedFor: { $ne: userId },
+      deletedForEveryone: false,
+    })
+      .populate('senderId', 'username displayName')
+      .sort({ createdAt: 1 });
+
+    const chatLines = messages.map((m: any) => {
+      const dateStr = new Date(m.createdAt).toLocaleString();
+      const sender = m.senderId?.displayName || m.senderId?.username || 'Unknown';
+      const text = m.type === 'text' ? m.content : `[${m.type.toUpperCase()}] ${m.content || m.fileName || ''}`;
+      return `[${dateStr}] ${sender}: ${text}`;
+    });
+
+    const exportText = `VChats Export - Conversation ${conversationId}\nGenerated on ${new Date().toLocaleString()}\n\n` + chatLines.join('\n');
+
+    res.status(200).json({
+      status: 'success',
+      exportText,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

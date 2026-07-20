@@ -4,17 +4,23 @@ export interface User {
   email: string;
   displayName: string;
   profilePhoto: string;
+  gender?: 'male' | 'female' | 'other';
   about: string;
   status: 'online' | 'offline';
   bio: string;
+  birthday?: string;
   themePreference: 'light' | 'dark';
   lastSeen: string;
   isVerified: boolean;
   isAdmin: boolean;
+  isBusinessAccount?: boolean;
   blockedUsers: string[] | User[];
   friends?: string[] | User[];
+  favoriteContacts?: string[] | User[];
+  starredMessages?: string[];
   twoFactorEnabled?: boolean;
   chatLockPin?: string;
+  secretCode?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,18 +35,30 @@ export interface Reaction {
   emoji: string;
 }
 
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: string[];
+}
+
 export interface Message {
   _id: string;
   conversationId: string;
   senderId: User; // Populated User details
   content: string;
-  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'location' | 'contact';
+  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'location' | 'contact' | 'poll' | 'payment';
   fileUrl?: string;
   fileName?: string;
   fileSize?: number;
   seenBy: Receipt[];
   deliveredTo: Receipt[];
   reactions: Reaction[];
+  pollOptions?: PollOption[];
+  isViewOnce?: boolean;
+  isViewedOnce?: boolean;
+  starredBy?: string[];
+  paymentAmount?: number;
+  paymentStatus?: string;
   replyTo?: Message;
   forwarded: boolean;
   isEdited: boolean;
@@ -98,45 +116,49 @@ export interface Channel {
   description: string;
   owner: User;
   followers: string[];
-  avatar: string;
-  isPublic: boolean;
+  isVerified: boolean;
+  avatar?: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface StoryViewer {
-  userId: User;
-  viewedAt: string;
 }
 
 export interface Story {
   _id: string;
   userId: User;
-  mediaUrl?: string;
-  mediaType: 'text' | 'image' | 'video' | 'audio';
-  textContent?: string;
+  mediaUrl: string;
+  mediaType?: 'image' | 'video' | 'text' | 'audio';
+  caption: string;
+  type: 'image' | 'video' | 'text' | 'audio';
   background?: string;
-  caption?: string;
+  textContent?: string;
   songTitle?: string;
   songArtist?: string;
   songAlbumArt?: string;
   songPreviewUrl?: string;
-  viewers: StoryViewer[];
   duration?: number;
+  viewers: { userId: User; viewedAt: string }[];
   expiresAt: string;
   createdAt: string;
-  updatedAt: string;
 }
 
-export interface Call {
+export interface CallLog {
   _id: string;
-  conversationId?: string;
-  callerId: User;
-  receiverId: User;
-  type: 'voice' | 'video';
-  status: 'initiated' | 'connected' | 'missed' | 'rejected' | 'ended';
+  caller: User;
+  receiver: User;
+  type: 'audio' | 'video';
+  status: 'ongoing' | 'ended' | 'missed' | 'rejected';
   duration: number;
-  startedAt?: string;
-  endedAt?: string;
+  createdAt: string;
+}
+
+export interface Payment {
+  _id: string;
+  senderId: User;
+  receiverId: User;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'completed' | 'failed';
+  note?: string;
+  transactionId: string;
   createdAt: string;
 }

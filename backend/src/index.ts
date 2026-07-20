@@ -29,6 +29,7 @@ import callRoutes from './routes/callRoutes';
 import adminRoutes from './routes/adminRoutes';
 import friendRoutes from './routes/friendRoutes';
 import aiRoutes from './routes/aiRoutes';
+import paymentRoutes from './routes/paymentRoutes';
 import { startScheduledMessagesJob } from './jobs/scheduledMessages';
 
 const app = express();
@@ -48,33 +49,14 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'https://vchatss.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:5180',
-  'http://localhost:3000',
-];
-
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    if (!origin) return callback(null, true);
-    
-    // In development, allow any origin (e.g. local IPs like 192.168.x.x) to prevent CORS blocks
-    if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
-      return callback(null, true);
-    }
-    
-    const isAllowed = allowedOrigins.some((allowed) => allowed && origin === allowed) || origin.includes('vercel.app');
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    // Always allow requests from any frontend domain (Vercel, Render, Localhost, Mobile, PWA)
+    callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
@@ -121,6 +103,7 @@ app.use('/api/v1/calls', callRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/friends', friendRoutes);
 app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/payments', paymentRoutes);
 
 // Catch-all API Route 404
 app.all('*', (req, res, next) => {

@@ -194,6 +194,7 @@ const Login: React.FC = () => {
                 </div>
                 <input
                   type="text"
+                  autoComplete="username"
                   placeholder="name@example.com or username"
                   {...register('identifier')}
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-950/40 border border-gray-800 focus:border-brandTeal focus:outline-none text-gray-100 placeholder-gray-600 transition-colors"
@@ -220,6 +221,7 @@ const Login: React.FC = () => {
                 </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   {...register('password')}
                   className="w-full pl-10 pr-10 py-3 rounded-xl bg-gray-950/40 border border-gray-800 focus:border-brandTeal focus:outline-none text-gray-100 placeholder-gray-600 transition-colors"
