@@ -1067,12 +1067,17 @@ How can I help you today? You can type:
       return;
     }
 
+    if (!activeConversation || !activeConversation._id || activeConversation._id === 'undefined') {
+      alert('Please select a valid conversation first.');
+      return;
+    }
+
     try {
       const formData = new FormData();
-      formData.append('conversationId', activeConversation?._id || '');
-      formData.append('content', messageInput);
+      formData.append('conversationId', activeConversation._id);
+      formData.append('content', messageInput || '');
       formData.append('type', selectedMessageFile ? 'image' : 'text');
-      if (replyMessage) {
+      if (replyMessage && replyMessage._id) {
         formData.append('replyTo', replyMessage._id);
       }
       if (selectedMessageFile) {

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Response, NextFunction } from 'express';
 import Message from '../models/Message';
 import Conversation from '../models/Conversation';
@@ -34,8 +35,12 @@ export const sendMessage = async (
     const { conversationId, content, type, replyTo, location, contactCard, disappearingTime, scheduledFor } = req.body;
     const userId = req.user?._id;
 
-    if (!conversationId) {
+    if (!conversationId || conversationId === 'undefined' || conversationId === 'null') {
       return next(new AppError('Conversation ID is required.', 400));
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return next(new AppError('Invalid Conversation ID format.', 400));
     }
 
     const conversation = await Conversation.findOne({
@@ -58,8 +63,13 @@ export const sendMessage = async (
       fileSize = req.file.size;
       computedType = getMediaType(fileName, req.file.mimetype);
 
-      const result = await uploadToCloudinary(req.file.path, 'attachments', computedType === 'document' ? 'raw' : computedType === 'video' ? 'video' : 'image');
-      fileUrl = result.url;
+      try {
+        const result = await uploadToCloudinary(req.file.path, 'attachments', computedType === 'document' ? 'raw' : computedType === 'video' ? 'video' : 'image');
+        fileUrl = result.url;
+      } catch (err) {
+        console.error('[Cloudinary Upload Warning]', err);
+        fileUrl = req.file.path ? `/uploads/${req.file.filename}` : undefined;
+      }
     }
 
     // Check custom types
@@ -71,14 +81,18 @@ export const sendMessage = async (
     }
 
     // Ephemeral / Disappearing message settings
-    const isDisappearing = !!disappearingTime;
-    const disappearsAt = disappearingTime
-      ? new Date(Date.now() + parseInt(disappearingTime, 10) * 1000)
+    const parsedDisappearing = disappearingTime ? parseInt(disappearingTime, 10) : 0;
+    const isDisappearing = !isNaN(parsedDisappearing) && parsedDisappearing > 0;
+    const disappearsAt = isDisappearing
+      ? new Date(Date.now() + parsedDisappearing * 1000)
       : undefined;
 
     // Check if scheduled
-    const isScheduled = scheduledFor && new Date(scheduledFor).getTime() > Date.now();
+    const isScheduled = scheduledFor && !isNaN(new Date(scheduledFor).getTime()) && new Date(scheduledFor).getTime() > Date.now();
     const scheduledDate = isScheduled ? new Date(scheduledFor) : undefined;
+
+    // Clean replyTo ObjectId to avoid CastError 400
+    const cleanReplyTo = replyTo && replyTo !== 'undefined' && replyTo !== 'null' && mongoose.Types.ObjectId.isValid(replyTo) ? replyTo : undefined;
 
     // Create message
     let message = await Message.create({
@@ -89,7 +103,7 @@ export const sendMessage = async (
       fileUrl,
       fileName,
       fileSize,
-      replyTo: replyTo || undefined,
+      replyTo: cleanReplyTo,
       isDisappearing,
       disappearsAt,
       scheduledFor: scheduledDate,
@@ -98,7 +112,7 @@ export const sendMessage = async (
 
     // Populate Sender details
     message = await message.populate('senderId', 'username displayName profilePhoto');
-    if (replyTo) {
+    if (cleanReplyTo) {
       message = await message.populate({
         path: 'replyTo',
         populate: {
