@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { authStart, authSuccess, authFailure, logoutSuccess } from '../redux/authSlice';
 import { api } from '../services/api';
 import { RootState } from '../redux/store';
-import { Eye, EyeOff, Lock, User as UserIcon, Fingerprint, Download, Smartphone, Monitor, X } from 'lucide-react';
+import { Eye, EyeOff, Lock, User as UserIcon, Fingerprint, Download, Smartphone, Monitor, X, Globe } from 'lucide-react';
 
 const loginSchema = z.object({
   identifier: z.string().min(1, 'Username or Email is required'),
@@ -26,6 +26,12 @@ const Login: React.FC = () => {
   const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [biometricStatus, setBiometricStatus] = useState<'scanning' | 'success' | 'failed'>('scanning');
   const [localError, setLocalError] = useState<string | null>(null);
+  const [selectedLang, setSelectedLang] = useState(localStorage.getItem('vchats_language') || 'en');
+
+  const handleLanguageChange = (lang: string) => {
+    setSelectedLang(lang);
+    localStorage.setItem('vchats_language', lang);
+  };
   
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -158,6 +164,28 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-obsidian text-gray-100 flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Top Right Language Preference Selector */}
+      <div className="absolute top-6 right-6 z-30 flex items-center gap-2 bg-gray-900/90 backdrop-blur-md px-3.5 py-2 rounded-full border border-gray-800 shadow-xl">
+        <Globe className="w-4 h-4 text-brandTeal shrink-0" />
+        <select
+          value={selectedLang}
+          onChange={(e) => handleLanguageChange(e.target.value)}
+          className="bg-transparent text-xs font-extrabold text-gray-200 outline-none cursor-pointer pr-1"
+        >
+          <option value="en" className="bg-gray-950 text-white">🇺🇸 English</option>
+          <option value="es" className="bg-gray-950 text-white">🇪🇸 Español</option>
+          <option value="hi" className="bg-gray-950 text-white">🇮🇳 हिंदी (Hindi)</option>
+          <option value="te" className="bg-gray-950 text-white">🇮🇳 తెలుగు (Telugu)</option>
+          <option value="fr" className="bg-gray-950 text-white">🇫🇷 Français</option>
+          <option value="de" className="bg-gray-950 text-white">🇩🇪 Deutsch</option>
+          <option value="ar" className="bg-gray-950 text-white">🇸🇦 العربية</option>
+          <option value="pt" className="bg-gray-950 text-white">🇧🇷 Português</option>
+          <option value="zh" className="bg-gray-950 text-white">🇨🇳 中文</option>
+          <option value="ja" className="bg-gray-950 text-white">🇯🇵 日本語</option>
+          <option value="ru" className="bg-gray-950 text-white">🇷🇺 Русский</option>
+        </select>
+      </div>
+
       {/* Background Gradients */}
       <div className="absolute top-1/3 left-1/3 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-brandTeal/10 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/3 right-1/3 translate-x-1/2 translate-y-1/2 w-96 h-96 rounded-full bg-brandViolet/10 blur-[120px] pointer-events-none" />

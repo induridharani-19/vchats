@@ -48,6 +48,7 @@ import {
   CheckSquare,
   Fingerprint,
   Monitor,
+  Globe,
   Download,
   Smartphone
 } from 'lucide-react';
@@ -310,7 +311,7 @@ const ChatDashboard: React.FC = () => {
   const [reportReason, setReportReason] = useState('');
 
   // Settings Sub-pages States
-  const [activeSettingSubPage, setActiveSettingSubPage] = useState<'main' | 'general' | 'profile' | 'account' | 'privacy' | 'chats' | 'video-voice' | 'notifications' | 'shortcuts' | 'help'>('main');
+  const [activeSettingSubPage, setActiveSettingSubPage] = useState<'main' | 'language' | 'general' | 'profile' | 'account' | 'privacy' | 'chats' | 'video-voice' | 'notifications' | 'shortcuts' | 'help'>('main');
   const [settingsSearchQuery, setSettingsSearchQuery] = useState('');
 
   // Locked Chat States
@@ -1059,7 +1060,10 @@ How can I help you today? You can type:
       setMessageInput('');
 
       try {
-        const res = await api.post('/ai/chat', { message: input });
+        const res = await api.post('/ai/chat', { 
+          message: input,
+          language: localStorage.getItem('vchats_language') || 'en'
+        });
         const aiMsg = {
           _id: 'ai-' + Date.now(),
           senderId: { _id: 'ai-bot', displayName: 'VChats AI Assistant', username: 'ai_assistant' },
@@ -3013,6 +3017,7 @@ How can I help you today? You can type:
                   {/* Settings Options List */}
                   <div className="space-y-1">
                     {[
+                      { id: 'language', title: 'Language & Region', desc: 'Select preferred app & AI assistant language', icon: Globe },
                       { id: 'general', title: 'General', desc: 'Startup and close', icon: Sliders },
                       { id: 'profile', title: 'Profile', desc: 'Name, profile picture, username', icon: UserIcon },
                       { id: 'account', title: 'Account', desc: 'Security notifications, account info', icon: Shield },
@@ -3156,6 +3161,48 @@ How can I help you today? You can type:
                         >
                           Save Changes
                         </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* LANGUAGE & REGION SUB-PAGE */}
+                  {activeSettingSubPage === 'language' && (
+                    <div className="space-y-4">
+                      <h4 className="font-bold text-white text-xs block mb-2 uppercase tracking-wide text-gray-550">Language & AI Preference</h4>
+                      <div className="space-y-2.5 bg-gray-900/30 p-4 rounded-2xl border border-gray-900">
+                        <span className="text-xs text-gray-400 block mb-3 leading-relaxed">
+                          Select your preferred language. The AI Assistant and app features will automatically communicate in your chosen language.
+                        </span>
+                        {[
+                          { code: 'en', label: 'English', flag: '🇺🇸' },
+                          { code: 'es', label: 'Español (Spanish)', flag: '🇪🇸' },
+                          { code: 'hi', label: 'हिंदी (Hindi)', flag: '🇮🇳' },
+                          { code: 'te', label: 'తెలుగు (Telugu)', flag: '🇮🇳' },
+                          { code: 'fr', label: 'Français (French)', flag: '🇫🇷' },
+                          { code: 'de', label: 'Deutsch (German)', flag: '🇩🇪' },
+                          { code: 'ar', label: 'العربية (Arabic)', flag: '🇸🇦' },
+                          { code: 'pt', label: 'Português (Portuguese)', flag: '🇧🇷' },
+                          { code: 'zh', label: '中文 (Chinese)', flag: '🇨🇳' },
+                          { code: 'ja', label: '日本語 (Japanese)', flag: '🇯🇵' },
+                          { code: 'ru', label: 'Русский (Russian)', flag: '🇷🇺' },
+                        ].map((lang) => (
+                          <label key={lang.code} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-900 cursor-pointer transition-colors border border-gray-900/40">
+                            <div className="flex items-center gap-3">
+                              <span className="text-base">{lang.flag}</span>
+                              <span className="font-bold text-xs text-gray-200">{lang.label}</span>
+                            </div>
+                            <input
+                              type="radio"
+                              name="appLanguagePreference"
+                              checked={(localStorage.getItem('vchats_language') || 'en') === lang.code}
+                              onChange={() => {
+                                localStorage.setItem('vchats_language', lang.code);
+                                window.location.reload();
+                              }}
+                              className="w-4 h-4 text-brandTeal bg-gray-900 border-gray-800 focus:ring-brandTeal"
+                            />
+                          </label>
+                        ))}
                       </div>
                     </div>
                   )}
