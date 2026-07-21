@@ -499,6 +499,12 @@ How can I help you today? You can type:
     }
   }, [socket]);
 
+  const formatCallDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const sendCallReaction = (emoji: string) => {
     if (socket && callState.peerUser) {
       socket.emit('call-reaction', {
@@ -2249,11 +2255,34 @@ How can I help you today? You can type:
   };
 
   const innerContent = (
-    <div className={`flex w-full bg-obsidian text-gray-200 overflow-hidden font-sans selection:bg-brandTeal selection:text-white ${
-      layoutMode === 'mockup' ? 'h-full' : 'h-screen h-[100dvh]'
-    } ${
-      isMobileView ? 'flex-col' : 'flex-row'
-    }`}>
+    <div className="flex flex-col w-full h-screen h-[100dvh] overflow-hidden bg-obsidian text-gray-200 font-sans selection:bg-brandTeal selection:text-white">
+      {/* Top PWA Native App Install Banner */}
+      {isInstallable && (
+        <div className="w-full bg-gradient-to-r from-brandTeal via-teal-600 to-brandViolet text-white px-4 py-2 flex items-center justify-between z-50 text-xs font-semibold shadow-md shrink-0 border-b border-white/10">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base shrink-0">📱</span>
+            <span className="truncate">Install <b>VChats Native App</b> for Standalone App Mode (No Chrome Bar)!</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            <button
+              onClick={handleInstallApp}
+              className="bg-white text-gray-950 hover:bg-gray-100 px-3 py-1 rounded-lg text-xs font-extrabold shadow transition-all hover:scale-105"
+            >
+              Install Native App
+            </button>
+            <button
+              onClick={() => setIsInstallable(false)}
+              className="text-white/80 hover:text-white p-1"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={`flex flex-1 w-full overflow-hidden ${
+        isMobileView ? 'flex-col' : 'flex-row'
+      }`}>
       {/* 1. Nav Sidebar (Bottom on mobile, Left on desktop) */}
       <div className={`z-30 ${
         isMobileView
@@ -5126,13 +5155,24 @@ How can I help you today? You can type:
                         <span className="text-[10px] text-gray-400 block truncate">@{callState.peerUser?.username}</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[9px] uppercase tracking-widest text-brandTeal font-bold block">
-                        Secure Call
-                      </span>
-                      <span className="text-[11px] text-gray-300 font-mono">
-                        {callState.callStatus === 'ringing' ? 'Ringing...' : `Connected (${callDuration}s)`}
-                      </span>
+                    <div className="text-right flex flex-col items-end gap-1">
+                      <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full border border-gray-800">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-[10px] font-extrabold text-emerald-400 tracking-wider uppercase">HD 1080p</span>
+                        <div className="flex items-end gap-0.5 h-2.5 ml-1">
+                          <span className="w-0.5 h-1 bg-emerald-400 rounded-xs" />
+                          <span className="w-0.5 h-1.5 bg-emerald-400 rounded-xs" />
+                          <span className="w-0.5 h-2.5 bg-emerald-400 rounded-xs" />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] uppercase tracking-widest text-brandTeal font-bold flex items-center gap-1">
+                          🔒 Encrypted
+                        </span>
+                        <span className="text-xs text-white font-bold font-mono bg-gray-900/80 px-2 py-0.5 rounded-md border border-gray-800">
+                          {callState.callStatus === 'ringing' ? 'Ringing...' : formatCallDuration(callDuration)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </>
@@ -7029,7 +7069,8 @@ How can I help you today? You can type:
         </div>
       )}
     </div>
-  );
+  </div>
+);
 
   if (layoutMode === 'mockup') {
     return (
