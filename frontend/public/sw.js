@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vchats-cache-v2.1';
+const CACHE_NAME = 'vchats-cache-v3.0';
 
 // Install Event
 self.addEventListener('install', (event) => {
