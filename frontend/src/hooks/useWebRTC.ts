@@ -4,11 +4,16 @@ import { Socket } from 'socket.io-client';
 import { RootState } from '../redux/store';
 import { connectCall, endCall } from '../redux/callSlice';
 
-const iceServers = {
+const iceServers: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 export const useWebRTC = (socket: Socket | null) => {
@@ -27,6 +32,7 @@ export const useWebRTC = (socket: Socket | null) => {
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const iceCandidateQueueRef = useRef<RTCIceCandidateInit[]>([]);
+  const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
 
   // Helper to cleanup streams/connections
   const cleanupCall = () => {
@@ -50,6 +56,7 @@ export const useWebRTC = (socket: Socket | null) => {
     setRemoteStream(null);
     setRemoteStreams([]);
     iceCandidateQueueRef.current = [];
+    pendingOfferRef.current = null;
   };
 
   // 1-to-1 Call Handler Effect
@@ -74,11 +81,34 @@ export const useWebRTC = (socket: Socket | null) => {
       }
     };
 
+    const processOffer = async (pc: RTCPeerConnection, offer: RTCSessionDescriptionInit) => {
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        await drainIceCandidates();
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('webrtc-answer', {
+          targetUserId: peerUser.id,
+          answer,
+        });
+      } catch (err) {
+        console.error('Error processing WebRTC offer:', err);
+      }
+    };
+
     const initConnection = async () => {
       try {
-        const constraints = {
-          audio: true,
-          video: callType === 'video',
+        const constraints: MediaStreamConstraints = {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: callType === 'video' ? {
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30 },
+          } : false,
         };
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -93,8 +123,11 @@ export const useWebRTC = (socket: Socket | null) => {
         });
 
         pc.ontrack = (event) => {
-          const stream = event.streams[0] || new MediaStream([event.track]);
-          setRemoteStream(new MediaStream(stream.getTracks()));
+          const incomingStream = event.streams[0] || new MediaStream([event.track]);
+          incomingStream.getAudioTracks().forEach((track) => {
+            track.enabled = true;
+          });
+          setRemoteStream(incomingStream);
           dispatch(connectCall());
         };
 
@@ -110,6 +143,13 @@ export const useWebRTC = (socket: Socket | null) => {
         if (!isCaller) {
           socket.emit('call-accept', { callerId: peerUser.id, callId });
         }
+
+        // Process any pending offer received before connection initialization finished
+        if (pendingOfferRef.current) {
+          const pending = pendingOfferRef.current;
+          pendingOfferRef.current = null;
+          await processOffer(pc, pending);
+        }
       } catch (err) {
         console.error('WebRTC Initialization Error:', err);
         dispatch(endCall());
@@ -122,14 +162,9 @@ export const useWebRTC = (socket: Socket | null) => {
       try {
         const pc = peerConnectionRef.current;
         if (pc) {
-          await pc.setRemoteDescription(new RTCSessionDescription(offer));
-          await drainIceCandidates();
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          socket.emit('webrtc-answer', {
-            targetUserId: peerUser.id,
-            answer,
-          });
+          await processOffer(pc, offer);
+        } else {
+          pendingOfferRef.current = offer;
         }
       } catch (err) {
         console.error('Error handling WebRTC offer:', err);
@@ -181,9 +216,17 @@ export const useWebRTC = (socket: Socket | null) => {
 
     const initLocalGroupMedia = async () => {
       try {
-        const constraints = {
-          audio: true,
-          video: callType === 'video',
+        const constraints: MediaStreamConstraints = {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: callType === 'video' ? {
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30 },
+          } : false,
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         localStreamRef.current = stream;
@@ -210,11 +253,14 @@ export const useWebRTC = (socket: Socket | null) => {
       }
 
       pc.ontrack = (event) => {
-        const stream = event.streams[0] || new MediaStream([event.track]);
+        const incomingStream = event.streams[0] || new MediaStream([event.track]);
+        incomingStream.getAudioTracks().forEach((track) => {
+          track.enabled = true;
+        });
         setRemoteStreams((prev) => {
           const exists = prev.some((p) => p.userId === peerId);
           if (exists) return prev;
-          return [...prev, { userId: peerId, stream: new MediaStream(stream.getTracks()) }];
+          return [...prev, { userId: peerId, stream: incomingStream }];
         });
       };
 

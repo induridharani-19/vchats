@@ -4977,6 +4977,21 @@ How can I help you today? You can type:
                       </div>
                     )}
 
+                    {/* Group Audio Elements */}
+                    {remoteStreams.map((peer) => (
+                      <audio
+                        key={`audio-${peer.userId}`}
+                        ref={(el) => {
+                          if (el && el.srcObject !== peer.stream) {
+                            el.srcObject = peer.stream;
+                            el.play().catch((err) => console.error('Group peer audio playback error:', err));
+                          }
+                        }}
+                        autoPlay
+                        playsInline
+                      />
+                    ))}
+
                     {/* Remote Feeds */}
                     {callState.callType === 'video' && remoteStreams.map((peer) => (
                       <div key={peer.userId} className="relative bg-gray-950 rounded-2xl overflow-hidden aspect-[3/4] border border-gray-800">
@@ -5014,6 +5029,20 @@ How can I help you today? You can type:
                 </div>
               ) : (
                 <>
+                  {/* Remote Audio Element to guarantee incoming sound for Voice & Video calls */}
+                  {remoteStream && (
+                    <audio
+                      ref={(el) => {
+                        if (el && el.srcObject !== remoteStream) {
+                          el.srcObject = remoteStream;
+                          el.play().catch((err) => console.error('Remote audio playback error:', err));
+                        }
+                      }}
+                      autoPlay
+                      playsInline
+                    />
+                  )}
+
                   {/* Z-0: Background Remote Video for Video Call */}
                   {callState.callType === 'video' && remoteStream ? (
                     <video
