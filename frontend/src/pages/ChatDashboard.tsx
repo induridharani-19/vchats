@@ -413,6 +413,12 @@ const ChatDashboard: React.FC = () => {
   const [callDuration, setCallDuration] = useState(0);
   const [showMobileChatActive, setShowMobileChatActive] = useState(false);
 
+  useEffect(() => {
+    if (activeConversation) {
+      setShowMobileChatActive(true);
+    }
+  }, [activeConversation?._id]);
+
   // Expanded Feature States
   const [activeTab, setActiveTab] = useState<'chats' | 'friends' | 'status' | 'calls' | 'settings'>('chats');
   const [friendRequests, setFriendRequests] = useState<any[]>([]);
