@@ -22,6 +22,24 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 let socketInstance: Socket | null = null;
 let listenersBound = false;
 
+const showSystemNotification = (title: string, options: any) => {
+  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    try {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then((reg) => {
+          reg.showNotification(title, options);
+        }).catch(() => {
+          new Notification(title, options);
+        });
+      } else {
+        new Notification(title, options);
+      }
+    } catch (e) {
+      console.error('Notification trigger error:', e);
+    }
+  }
+};
+
 export const useSocket = () => {
   const dispatch = useDispatch();
   const { token, user, isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -36,6 +54,11 @@ export const useSocket = () => {
         setSocket(null);
       }
       return;
+    }
+
+    // Auto-request System & Lockscreen Notification Permissions
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
     }
 
     // Connect socket if not already connected
@@ -73,6 +96,17 @@ export const useSocket = () => {
       // Messages & Conversations updates
       socketInstance.on('message-receive', (message) => {
         dispatch(addMessage(message));
+        if (document.hidden && message.senderId?._id !== user?._id) {
+          const senderName = message.senderId?.displayName || message.senderId?.username || 'VChats';
+          const bodyText = message.content || (message.fileUrl ? '📎 Sent a file' : 'New message received');
+          showSystemNotification(`💬 ${senderName}`, {
+            body: bodyText,
+            icon: message.senderId?.profilePhoto || '/logo192.png',
+            tag: `msg-${message.conversationId}`,
+            renotify: true,
+            vibrate: [200, 100, 200],
+          });
+        }
       });
 
       socketInstance.on('messages-seen', ({ userId, messageIds }) => {
@@ -126,9 +160,17 @@ export const useSocket = () => {
         window.location.reload();
       });
 
-      // WebRTC Signal Forwarding / Calling UI triggers
+      // WebRTC Signal Forwarding / Calling UI triggers with Native System Notification
       socketInstance.on('call-incoming', ({ caller, callType, callId, conversationId, callLogId }) => {
         dispatch(receiveCall({ caller, callType, callId, conversationId, callLogId }));
+        const callerName = caller.displayName || caller.username || 'Someone';
+        showSystemNotification(`📞 Incoming ${callType.toUpperCase()} Call`, {
+          body: `${callerName} is calling you on VChats...`,
+          icon: caller.profilePhoto || '/logo192.png',
+          tag: `call-${callId}`,
+          renotify: true,
+          vibrate: [300, 200, 300, 200, 300],
+        });
       });
 
       socketInstance.on('group-call-incoming', ({ caller, callType, callId, conversationId, groupName, callLogId }) => {
@@ -144,6 +186,13 @@ export const useSocket = () => {
           conversationId,
           callLogId,
         }));
+        showSystemNotification(`📞 Incoming Group ${callType.toUpperCase()} Call`, {
+          body: `Group Call started in ${groupName || 'Group'}...`,
+          icon: caller.profilePhoto || '/logo192.png',
+          tag: `group-call-${callId}`,
+          renotify: true,
+          vibrate: [300, 200, 300, 200, 300],
+        });
       });
 
       socketInstance.on('call-ended', () => {

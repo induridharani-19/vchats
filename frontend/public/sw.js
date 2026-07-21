@@ -75,3 +75,57 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Push Event Handler (for Web Push Protocol & Lockscreen/System Notifications)
+self.addEventListener('push', (event) => {
+  let data = { title: 'VChats Message', body: 'You have a new message!', icon: '/logo192.png' };
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch (err) {
+    if (event.data) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body || 'New message on VChats',
+    icon: data.icon || '/logo192.png',
+    badge: '/logo192.png',
+    tag: data.tag || 'vchats-notification',
+    renotify: true,
+    vibrate: [200, 100, 200, 100, 200],
+    data: {
+      url: data.url || '/dashboard',
+      conversationId: data.conversationId,
+    },
+    actions: [
+      { action: 'open', title: '💬 Open VChats' },
+      { action: 'close', title: 'Dismiss' }
+    ]
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title || 'VChats', options));
+});
+
+// Notification Click Handler (opens app when user clicks lock screen / home screen banner)
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  if (event.action === 'close') return;
+
+  const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/dashboard';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
