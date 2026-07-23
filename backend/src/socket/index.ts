@@ -181,6 +181,15 @@ export const initSocket = (server: HttpServer): Server => {
       io.to(targetUserId).emit('call-reaction', { senderId: userId, reaction });
     });
 
+    socket.on('call-state-change', ({ targetUserId, callId, isMuted, isCameraOff, isSharingScreen }) => {
+      const payload = { senderId: userId, isMuted, isCameraOff, isSharingScreen };
+      if (targetUserId) {
+        io.to(targetUserId).emit('call-state-change', payload);
+      } else if (callId) {
+        socket.to(`call-${callId}`).emit('call-state-change', payload);
+      }
+    });
+
     // 5. Disconnect
     socket.on('disconnect', async () => {
       console.log(`Socket disconnected: ${socket.id}`);

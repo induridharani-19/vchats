@@ -15,14 +15,14 @@ export default {
           hover: '#1F2937',
         },
         brandTeal: {
-          light: '#33C4AE',
-          DEFAULT: '#00B69B',
-          dark: '#008B76',
+          light: 'var(--color-brand-teal-light, #33C4AE)',
+          DEFAULT: 'var(--color-brand-teal, #00B69B)',
+          dark: 'var(--color-brand-teal-dark, #008B76)',
         },
         brandViolet: {
-          light: '#A78BFA',
-          DEFAULT: '#8B5CF6',
-          dark: '#6D28D9',
+          light: 'var(--color-brand-violet-light, #A78BFA)',
+          DEFAULT: 'var(--color-brand-violet, #8B5CF6)',
+          dark: 'var(--color-brand-violet-dark, #6D28D9)',
         },
       },
       backgroundImage: {

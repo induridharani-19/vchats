@@ -1,10 +1,11 @@
-import { Response, NextFunction } from 'express';
+import { Response, NextFunction, Request } from 'express';
 import User from '../models/User';
 import Message from '../models/Message';
 import Session from '../models/Session';
 import Call from '../models/Call';
 import Story from '../models/Story';
 import Conversation from '../models/Conversation';
+import SystemConfig from '../models/SystemConfig';
 import { AppError } from '../utils/appError';
 import { AuthenticatedRequest } from '../middlewares/auth';
 import { Server } from 'socket.io';
@@ -209,6 +210,87 @@ export const broadcastAnnouncement = async (
     res.status(200).json({
       status: 'success',
       message: 'Announcement broadcasted to all active connections.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Fetch public system configs (Branding & Ads)
+export const getPublicConfig = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    let config = await SystemConfig.findOne();
+    if (!config) {
+      config = await SystemConfig.create({
+        appName: 'VChats',
+        accentColor: '#0d9488',
+      });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      config: {
+        appName: config.appName,
+        appLogo: config.appLogo,
+        accentColor: config.accentColor,
+        showAds: config.showAds,
+        adImageUrl: config.adImageUrl,
+        adTargetUrl: config.adTargetUrl,
+        adText: config.adText,
+        maintenanceMode: config.maintenanceMode,
+        maintenanceMessage: config.maintenanceMessage,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Fetch all system configs (Protected Admin)
+export const getSystemConfig = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    let config = await SystemConfig.findOne();
+    if (!config) {
+      config = await SystemConfig.create({});
+    }
+
+    res.status(200).json({
+      status: 'success',
+      config,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update system configs (Protected Admin)
+export const updateSystemConfig = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const updateData = req.body;
+    let config = await SystemConfig.findOne();
+    if (!config) {
+      config = await SystemConfig.create(updateData);
+    } else {
+      Object.assign(config, updateData);
+      await config.save();
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'System configuration updated successfully.',
+      config,
     });
   } catch (error) {
     next(error);

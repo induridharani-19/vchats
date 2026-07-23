@@ -38,17 +38,23 @@ const processAiPrompt = async (prompt: string, contextType: string = 'general', 
           }]
         })
       });
-      const data: any = await response.json();
-      const aiReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (aiReply) {
-        return aiReply;
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Gemini API Error] Status ${response.status}: ${errorText}`);
+      } else {
+        const data: any = await response.json();
+        const aiReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (aiReply) {
+          return aiReply;
+        }
       }
     } catch (err) {
-      console.error('[Gemini API Call Error]', err);
+      console.error('[Gemini API Call Exception]', err);
     }
   }
 
-  // 2. Intelligent Multi-Domain Trained AI Engine
+  // 2. Intelligent Multi-Domain Trained AI Engine fallback
   if (contextType === 'write_assist' || query.includes('rewrite') || query.includes('professional') || query.includes('grammar') || query.includes('draft')) {
     const rawText = prompt.replace(/rewrite|professional|grammar|draft/gi, '').trim() || prompt;
     return `### ✍️ AI Writing Assistant (${targetLang})
@@ -85,7 +91,53 @@ Here is what I can do:
 Feel free to ask me any question!`;
   }
 
-  if (query.includes('code') || query.includes('javascript') || query.includes('react') || query.includes('python') || query.includes('html') || query.includes('css') || query.includes('function') || query.includes('bug')) {
+  // Smart dynamic offline response generators for typical terms
+  if (query.includes('java') && !query.includes('javascript')) {
+    return `### 🤖 VChats AI Answer (${targetLang})
+
+**Question**: *"${prompt}"*
+
+**Answer**:
+**Java** is a class-based, object-oriented, high-level programming language designed to have as few implementation dependencies as possible.
+
+1. **Key Concepts**: It follows the *Write Once, Run Anywhere* (WORA) philosophy, where compiled Java code runs on any platform that supports a Java Virtual Machine (JVM).
+2. **Ecosystem**: Java is widely used for enterprise servers, Android mobile development, large-scale backend systems, and financial databases.
+3. **Difference from JavaScript**: Java is a statically-typed compiled language, whereas JavaScript is a lightweight, dynamically-typed scripting language primarily used for web browser interactivity.
+
+*(⚠️ VChats AI Engine is running in local offline fallback mode. Please configure a valid \`GEMINI_API_KEY\` in your backend \`.env\` file to unlock full real-time generative capabilities.)*`;
+  }
+
+  if (query.includes('javascript') || query.includes(' js ') || query.endsWith(' js')) {
+    return `### 🤖 VChats AI Answer (${targetLang})
+
+**Question**: *"${prompt}"*
+
+**Answer**:
+**JavaScript** (JS) is a lightweight, interpreted, prototype-based scripting language that is one of the core technologies of the World Wide Web.
+
+1. **Usage**: It enables interactive web pages, dynamic user interfaces (via libraries like React/Vue), and backend services (via Node.js).
+2. **Type System**: It is dynamically-typed and supports object-oriented, imperative, and functional programming styles.
+3. **VChats Usage**: JavaScript and TypeScript power the entire VChats communication pipeline (React frontend, Node.js + Express backend, Socket.io, and WebRTC signaling).
+
+*(⚠️ VChats AI Engine is running in local offline fallback mode. Please configure a valid \`GEMINI_API_KEY\` in your backend \`.env\` file to unlock full real-time generative capabilities.)*`;
+  }
+
+  if (query.includes('webrtc') || query.includes('call') || query.includes('video')) {
+    return `### 🤖 VChats AI Answer (${targetLang})
+
+**Question**: *"${prompt}"*
+
+**Answer**:
+**WebRTC** (Web Real-Time Communication) is an open-source project providing web browsers and mobile applications with real-time communication via simple APIs.
+
+1. **Peer-to-Peer**: WebRTC connects browsers directly to stream audio, video, and data channels without intermediate server relaying (except for initial signaling/STUN/TURN).
+2. **VChats Call Pipeline**: VChats implements WebRTC mesh signaling via Socket.io. Local cameras capture streams, exchange SDP offers/answers, and stream high-definition calling layouts directly.
+3. **Features**: Integrates local track muting, speaker toggles, screensharing, device camera switching, and custom triangle wave dialing/ringtone synthesis.
+
+*(⚠️ VChats AI Engine is running in local offline fallback mode. Please configure a valid \`GEMINI_API_KEY\` in your backend \`.env\` file to unlock full real-time generative capabilities.)*`;
+  }
+
+  if (query.includes('code') || query.includes('react') || query.includes('python') || query.includes('html') || query.includes('css') || query.includes('function') || query.includes('bug')) {
     return `### 💻 VChats AI Code & Tech Solution (${targetLang})
 
 Here is the solution for your request:
@@ -105,15 +157,9 @@ function handleUserRequest(input) {
 **Key Points**:
 1. Optimized for modern asynchronous workflows (async/await).
 2. Clean error handling and type-safety.
-3. Fully compatible with VChats frontend & backend ecosystem.`;
-  }
+3. Fully compatible with VChats frontend & backend ecosystem.
 
-  if (query.includes('call') || query.includes('video') || query.includes('audio') || query.includes('webrtc') || query.includes('pwa') || query.includes('install')) {
-    return `### 📞 VChats Calling & App Guide (${targetLang})
-
-* **HD Voice & Video Calls**: Powered by WebRTC with low latency (<1s) connection and ICE candidate pooling.
-* **In-Call Features**: Live emoji reactions (❤️, 👏, 🔥), background blur, beauty filter, screen sharing, and audio mute.
-* **PWA Standalone App Mode**: Click **"Install Native App"** on top of the dashboard to run VChats directly without Chrome browser bars!`;
+*(⚠️ VChats AI Engine is running in local offline fallback mode. Please configure a valid \`GEMINI_API_KEY\` in your backend \`.env\` file to unlock full real-time generative capabilities.)*`;
   }
 
   // Universal answer generator for general knowledge / math / science / any question
@@ -124,11 +170,11 @@ function handleUserRequest(input) {
 **Answer**:
 Thank you for your question! Here is a detailed, structured response:
 
-1. **Overview**: Your query regarding *"prompt"* has been processed by the VChats AI Engine.
-2. **Analysis**: Every aspect of this topic is analyzed using AI models to provide precise information.
-3. **Recommendation**: If you need further elaboration, translations, code snippets, or writing assistance, feel free to ask follow-up questions!
+1. **Overview**: Your query regarding *"${prompt}"* has been processed by the VChats AI Engine in local simulation mode.
+2. **Analysis**: Under current local guidelines, the query has been parsed for key terminology and context.
+3. **Recommendation**: To get full generative answers dynamically from Google Gemini (like a standard chatbot), please obtain a free Gemini API key from Google AI Studio and configure it as \`GEMINI_API_KEY\` in your backend \`.env\` file.
 
-*(Response rendered in **${targetLang}**)*`;
+*(⚠️ VChats AI Engine is running in local offline fallback mode. Please configure a valid \`GEMINI_API_KEY\` in your backend \`.env\` file to unlock full real-time generative capabilities.)*`;
 };
 
 // 1. AI Assistant Chat Endpoint

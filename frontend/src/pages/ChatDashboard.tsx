@@ -50,7 +50,9 @@ import {
   Monitor,
   Globe,
   Download,
-  Smartphone
+  Smartphone,
+  Minimize2,
+  Maximize2
 } from 'lucide-react';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 
@@ -193,7 +195,23 @@ const ChatDashboard: React.FC = () => {
   const callState = useSelector((state: RootState) => state.call);
 
   // WebRTC calling Hook
-  const { localStream, remoteStream, remoteStreams, isSharingScreen, toggleMute, toggleCamera, toggleScreenShare, hangup } = useWebRTC(socket);
+  const {
+    localStream,
+    remoteStream,
+    remoteStreams,
+    isSharingScreen,
+    isMuted,
+    isCameraOff,
+    isSpeakerOn,
+    peerStates,
+    hasMultipleCameras,
+    toggleMute,
+    toggleCamera,
+    toggleSpeaker,
+    flipCamera,
+    toggleScreenShare,
+    hangup
+  } = useWebRTC(socket);
 
   // Local UI States
   const [searchQuery, setSearchQuery] = useState('');
@@ -219,9 +237,39 @@ const ChatDashboard: React.FC = () => {
   const [replyMessage, setReplyMessage] = useState<Message | null>(null);
   const [selectedMessageFile, setSelectedMessageFile] = useState<File | null>(null);
 
-  // Call Mute/Camera Toggles
-  const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOff, setIsCameraOff] = useState(false);
+  // Call Minimization State
+  const [isCallMinimized, setIsCallMinimized] = useState(false);
+
+  // Public configurations state for branding & ads
+  const [publicConfig, setPublicConfig] = useState<{
+    appName: string;
+    appLogo: string;
+    accentColor: string;
+    showAds: boolean;
+    adImageUrl: string;
+    adTargetUrl: string;
+    adText: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const loadPublicConfig = async () => {
+      try {
+        const res = await api.get('/admin/config/public');
+        if (res.data && res.data.config) {
+          setPublicConfig(res.data.config);
+          const { accentColor } = res.data.config;
+          if (accentColor) {
+            document.documentElement.style.setProperty('--color-brand-teal', accentColor);
+            document.documentElement.style.setProperty('--color-brand-teal-light', accentColor + 'dd');
+            document.documentElement.style.setProperty('--color-brand-teal-dark', accentColor);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load branding configs in dashboard:', err);
+      }
+    };
+    loadPublicConfig();
+  }, []);
 
   // Status Story Upload / Editor / Player States
   const [showStoryUploadModal, setShowStoryUploadModal] = useState(false);
@@ -815,8 +863,7 @@ How can I help you today? You can type:
   // Reset local call toggles when call resets
   useEffect(() => {
     if (callState.callStatus === 'idle' || callState.callStatus === 'ended') {
-      setIsMuted(false);
-      setIsCameraOff(false);
+      setIsCallMinimized(false);
     }
   }, [callState.callStatus]);
 
@@ -4058,6 +4105,35 @@ How can I help you today? You can type:
               </div>
             </div>
 
+            {/* Sponsored Advertisement Banner */}
+            {publicConfig?.showAds && publicConfig?.adText && (
+              <a
+                href={publicConfig.adTargetUrl || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mx-6 mt-3 p-3 rounded-2xl bg-brandViolet/5 border border-brandViolet/25 hover:bg-brandViolet/10 hover:border-brandViolet/40 transition-all flex items-center justify-between gap-4 select-none group text-xs text-gray-200"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  {publicConfig.adImageUrl && (
+                    <img
+                      src={publicConfig.adImageUrl}
+                      alt="Sponsor ad"
+                      className="w-9 h-9 rounded-xl object-cover border border-brandViolet/30 flex-shrink-0"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <span className="text-[8px] font-extrabold uppercase bg-brandViolet/20 text-brandViolet border border-brandViolet/30 px-1.5 py-0.5 rounded tracking-widest inline-block mb-1">Sponsored</span>
+                    <p className="font-semibold text-gray-300 truncate max-w-[280px] md:max-w-[450px]">
+                      {publicConfig.adText}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold text-brandTeal hover:underline flex-shrink-0 group-hover:translate-x-1 transition-transform">
+                  Details &rarr;
+                </span>
+              </a>
+            )}
+
             {/* Split layout: messages on left, info sidebar on right */}
             <div className="flex-1 flex overflow-hidden relative">
               <div className="flex-1 flex flex-col min-w-0 h-full relative">
@@ -5018,368 +5094,540 @@ How can I help you today? You can type:
           </div>
         )}
       </div>
-
       {/* 4. Active Calling Video/Audio Screen Overlays */}
       <AnimatePresence>
         {callState.callStatus !== 'idle' && callState.callStatus !== 'ended' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center p-4 text-white"
-          >
-            <div className={`relative w-full max-w-md bg-gray-950 rounded-3xl overflow-hidden border border-gray-900 shadow-glass flex flex-col items-center justify-between p-8 ${
-              isMobileView ? 'aspect-[3/4]' : 'aspect-[9/16] max-h-[80vh]'
-            }`}>
-              
-              {/* Group Calling vs 1-to-1 Calling Layouts */}
-              {callState.peerUser?.id === 'group' ? (
-                <div className="absolute inset-0 w-full h-full flex flex-col z-10 p-4">
-                  <div className="text-center mb-4">
-                    <span className="font-extrabold text-sm text-white block">
+          isCallMinimized ? (
+            /* Minimized call overlay (WhatsApp Style Floating PiP Window) */
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0, y: 50 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: 50 }}
+              className="fixed bottom-4 right-4 w-72 h-44 bg-gray-950 border border-brandTeal shadow-glass rounded-2xl flex flex-col justify-between p-3 z-50 text-white overflow-hidden select-none"
+            >
+              {/* If Video Call and remoteStream active, use remote video as background */}
+              {callState.callType === 'video' && remoteStream && callState.peerUser?.id !== 'group' ? (
+                <video
+                  ref={(el) => {
+                    if (el && el.srcObject !== remoteStream) el.srcObject = remoteStream;
+                  }}
+                  autoPlay
+                  playsInline
+                  className="absolute inset-0 w-full h-full object-cover z-0"
+                />
+              ) : null}
+
+              {/* In group video, show the first remote stream as background */}
+              {callState.callType === 'video' && callState.peerUser?.id === 'group' && remoteStreams.length > 0 && remoteStreams[0].stream ? (
+                <video
+                  ref={(el) => {
+                    if (el && el.srcObject !== remoteStreams[0].stream) el.srcObject = remoteStreams[0].stream;
+                  }}
+                  autoPlay
+                  playsInline
+                  className="absolute inset-0 w-full h-full object-cover z-0"
+                />
+              ) : null}
+
+              {/* PiP Overlay Info */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/60 z-10 p-3 flex flex-col justify-between">
+                {/* Header: Peer info & Timer */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0 font-sans">
+                    <div className="w-6 h-6 rounded-full bg-brandViolet flex items-center justify-center font-bold text-[10px] text-white overflow-hidden shrink-0">
+                      {callState.peerUser?.profilePhoto ? (
+                        <img src={getFileUrl(callState.peerUser.profilePhoto)} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        callState.peerUser?.displayName?.charAt(0) || 'C'
+                      )}
+                    </div>
+                    <span className="text-[11px] font-extrabold truncate max-w-[110px]">
                       {callState.peerUser?.displayName || 'Group Call'}
                     </span>
-                    <span className="text-[10px] text-brandTeal font-bold">
-                      {callState.callStatus === 'ringing' ? 'Calling group...' : `Connected (${callDuration}s)`}
-                    </span>
                   </div>
+                  <span className="text-[10px] font-mono font-bold bg-gray-900/90 border border-gray-800 px-1.5 py-0.5 rounded">
+                    {callState.callStatus === 'ringing' ? 'Calling...' : formatCallDuration(callDuration)}
+                  </span>
+                </div>
 
-                  <div className="flex-1 grid grid-cols-2 gap-2 overflow-y-auto p-1">
-                    {/* Local Feed */}
-                    {callState.callType === 'video' && localStream && (
-                      <div className="relative bg-gray-950 rounded-2xl overflow-hidden aspect-[3/4] border border-brandTeal/30">
-                        <video
+                {/* Body/Middle: peer status indicators */}
+                <div className="flex flex-col items-center justify-center flex-1">
+                  {/* If voice call or no stream connected */}
+                  {(callState.callType === 'voice' || (!remoteStream && callState.peerUser?.id !== 'group')) && (
+                    <div className="w-11 h-11 rounded-full bg-brandViolet flex items-center justify-center text-xl shadow-md border border-brandViolet/50 animate-pulse">
+                      📞
+                    </div>
+                  )}
+                  {/* Realtime peer mute / camera indicators */}
+                  {callState.peerUser && callState.peerUser.id !== 'group' && (
+                    <div className="flex gap-1.5 mt-2">
+                      {peerStates[callState.peerUser.id]?.isMuted && (
+                        <span className="text-[8px] bg-red-600/90 border border-red-500/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider text-white">Muted</span>
+                      )}
+                      {peerStates[callState.peerUser.id]?.isCameraOff && (
+                        <span className="text-[8px] bg-gray-800/90 border border-gray-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider text-white">Cam Off</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer Controls: Quick controls */}
+                <div className="flex items-center justify-between pointer-events-auto">
+                  <button
+                    onClick={() => toggleMute(!isMuted)}
+                    className={`p-2 rounded-full transition-all ${
+                      isMuted ? 'bg-red-600 text-white' : 'bg-gray-900/90 text-gray-400 hover:text-white hover:bg-gray-855'
+                    }`}
+                    title={isMuted ? "Unmute Mic" : "Mute Mic"}
+                  >
+                    <Mic className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={hangup}
+                    className="p-2 rounded-full bg-red-650 hover:bg-red-700 text-white transition-all hover:scale-105"
+                    title="End Call"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => setIsCallMinimized(false)}
+                    className="p-2 rounded-full bg-gray-900/90 text-gray-400 hover:text-white hover:bg-gray-855 transition-all"
+                    title="Maximize Call"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            /* Fullscreen call overlay */
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className={`fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center text-white ${
+                isMobileView ? 'p-0' : 'p-4'
+              }`}
+            >
+              <div className={`relative w-full bg-gray-950 overflow-hidden flex flex-col items-center justify-between shadow-glass ${
+                isMobileView 
+                  ? 'h-full w-full rounded-none border-none p-6 pb-24' 
+                  : 'max-w-md aspect-[9/16] max-h-[80vh] rounded-3xl border border-gray-900 p-8'
+              }`}>
+                
+                {/* Group Calling vs 1-to-1 Calling Layouts */}
+                {callState.peerUser?.id === 'group' ? (
+                  <div className="absolute inset-0 w-full h-full flex flex-col z-10 p-4">
+                    <div className="text-center mb-4">
+                      <span className="font-extrabold text-sm text-white block">
+                        {callState.peerUser?.displayName || 'Group Call'}
+                      </span>
+                      <span className="text-[10px] text-brandTeal font-bold">
+                        {callState.callStatus === 'ringing' ? 'Calling group...' : `Connected (${callDuration}s)`}
+                      </span>
+                    </div>
+
+                    <div className="flex-1 grid grid-cols-2 gap-2 overflow-y-auto p-1">
+                      {/* Local Feed */}
+                      {callState.callType === 'video' && localStream && (
+                        <div className="relative bg-gray-950 rounded-2xl overflow-hidden aspect-[3/4] border border-brandTeal/30">
+                          <video
+                            ref={(el) => {
+                              if (el && el.srcObject !== localStream) el.srcObject = localStream;
+                            }}
+                            autoPlay
+                            muted
+                            playsInline
+                            style={{ filter: getVideoFilterStyle() }}
+                            className="w-full h-full object-cover"
+                          />
+                          <span className="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[8px] font-bold text-white">
+                            You
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Group Audio Elements */}
+                      {remoteStreams.map((peer) => (
+                        <audio
+                          key={`audio-${peer.userId}`}
                           ref={(el) => {
-                            if (el && el.srcObject !== localStream) el.srcObject = localStream;
+                            if (el && el.srcObject !== peer.stream) {
+                              el.srcObject = peer.stream;
+                              el.play().catch((err) => console.error('Group peer audio playback error:', err));
+                            }
                           }}
                           autoPlay
-                          muted
                           playsInline
-                          style={{ filter: getVideoFilterStyle() }}
-                          className="w-full h-full object-cover"
                         />
-                        <span className="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[8px] font-bold text-white">
-                          You
-                        </span>
-                      </div>
-                    )}
+                      ))}
 
-                    {/* Group Audio Elements */}
-                    {remoteStreams.map((peer) => (
+                      {/* Remote Feeds */}
+                      {callState.callType === 'video' && remoteStreams.map((peer) => (
+                        <div key={peer.userId} className="relative bg-gray-950 rounded-2xl overflow-hidden aspect-[3/4] border border-gray-800">
+                          {peerStates[peer.userId]?.isCameraOff ? (
+                            <div className="w-full h-full bg-gray-900 flex flex-col items-center justify-center p-4">
+                              <span className="text-[10px] font-bold text-gray-550 uppercase tracking-widest block mb-1">Camera Off</span>
+                              <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center text-sm text-gray-400 font-bold border border-gray-700">
+                                {peer.username?.charAt(0).toUpperCase() || 'P'}
+                              </div>
+                            </div>
+                          ) : (
+                            <video
+                              ref={(el) => {
+                                if (el && el.srcObject !== peer.stream) el.srcObject = peer.stream;
+                              }}
+                              autoPlay
+                              playsInline
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                          <span className="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[8px] font-bold text-white flex items-center gap-1">
+                            {peer.username || 'Participant'}
+                            {peerStates[peer.userId]?.isMuted && (
+                              <VolumeX className="w-2.5 h-2.5 text-red-500" />
+                            )}
+                          </span>
+                        </div>
+                      ))}
+
+                      {/* Voice-only representation */}
+                      {callState.callType === 'voice' && (
+                        <div className="col-span-2 flex flex-col items-center justify-center gap-6 py-12">
+                          <div className="w-20 h-20 rounded-2xl bg-teal-gradient p-0.5 flex items-center justify-center animate-pulse">
+                            <div className="w-full h-full rounded-2xl bg-gray-955 flex items-center justify-center text-2xl">
+                              📞
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <span className="font-bold text-xs text-white block">Active Voice Group</span>
+                            <span className="text-[9px] text-gray-500 mt-1 block">
+                              {remoteStreams.length + 1} participants connected
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Remote Audio Element to guarantee incoming sound for Voice & Video calls */}
+                    {remoteStream && (
                       <audio
-                        key={`audio-${peer.userId}`}
                         ref={(el) => {
-                          if (el && el.srcObject !== peer.stream) {
-                            el.srcObject = peer.stream;
-                            el.play().catch((err) => console.error('Group peer audio playback error:', err));
+                          if (el && el.srcObject !== remoteStream) {
+                            el.srcObject = remoteStream;
+                            el.play().catch((err) => console.error('Remote audio playback error:', err));
                           }
                         }}
                         autoPlay
                         playsInline
                       />
-                    ))}
-
-                    {/* Remote Feeds */}
-                    {callState.callType === 'video' && remoteStreams.map((peer) => (
-                      <div key={peer.userId} className="relative bg-gray-950 rounded-2xl overflow-hidden aspect-[3/4] border border-gray-800">
-                        <video
-                          ref={(el) => {
-                            if (el && el.srcObject !== peer.stream) el.srcObject = peer.stream;
-                          }}
-                          autoPlay
-                          playsInline
-                          className="w-full h-full object-cover"
-                        />
-                        <span className="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 rounded text-[8px] font-bold text-white">
-                          Participant
-                        </span>
-                      </div>
-                    ))}
-
-                    {/* Voice-only representation */}
-                    {callState.callType === 'voice' && (
-                      <div className="col-span-2 flex flex-col items-center justify-center gap-6 py-12">
-                        <div className="w-20 h-20 rounded-2xl bg-teal-gradient p-0.5 flex items-center justify-center animate-pulse">
-                          <div className="w-full h-full rounded-2xl bg-gray-950 flex items-center justify-center text-2xl">
-                            📞
-                          </div>
-                        </div>
-                        <div className="text-center">
-                          <span className="font-bold text-xs text-white block">Active Voice Group</span>
-                          <span className="text-[9px] text-gray-500 mt-1 block">
-                            {remoteStreams.length + 1} participants connected
-                          </span>
-                        </div>
-                      </div>
                     )}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {/* Remote Audio Element to guarantee incoming sound for Voice & Video calls */}
-                  {remoteStream && (
-                    <audio
-                      ref={(el) => {
-                        if (el && el.srcObject !== remoteStream) {
-                          el.srcObject = remoteStream;
-                          el.play().catch((err) => console.error('Remote audio playback error:', err));
-                        }
-                      }}
-                      autoPlay
-                      playsInline
-                    />
-                  )}
 
-                  {/* Z-0: Background Remote Video for Video Call */}
-                  {callState.callType === 'video' && remoteStream ? (
-                    <video
-                      ref={(el) => {
-                        if (el && el.srcObject !== remoteStream) el.srcObject = remoteStream;
-                      }}
-                      autoPlay
-                      playsInline
-                      className="absolute inset-0 w-full h-full object-cover z-0"
-                    />
-                  ) : null}
-
-                  {/* Z-10: Self view PiP floating at Top-Right */}
-                  {callState.callType === 'video' && localStream && (
-                    <div className="absolute top-4 right-4 w-28 h-40 bg-gray-900 rounded-2xl overflow-hidden border-2 border-brandTeal shadow-md z-20">
+                    {/* Z-0: Background Remote Video for Video Call */}
+                    {callState.callType === 'video' && remoteStream && (!callState.peerUser || !peerStates[callState.peerUser.id]?.isCameraOff) ? (
                       <video
                         ref={(el) => {
-                          if (el && el.srcObject !== localStream) el.srcObject = localStream;
+                          if (el && el.srcObject !== remoteStream) el.srcObject = remoteStream;
                         }}
                         autoPlay
-                        muted
                         playsInline
-                        style={{ filter: getVideoFilterStyle() }}
-                        className="w-full h-full object-cover"
+                        className="absolute inset-0 w-full h-full object-cover z-0"
                       />
-                    </div>
-                  )}
+                    ) : null}
 
-                  {/* Z-10: Audio Calling details or Video connecting details */}
-                  <div className="flex flex-col items-center justify-center z-10 w-full flex-1">
-                    {(callState.callType === 'voice' || !remoteStream) && (
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="relative flex items-center justify-center">
-                          <div className="absolute w-28 h-28 rounded-full bg-brandViolet/20 animate-ping" />
-                          <div className="absolute w-24 h-24 rounded-full bg-brandViolet/40 animate-pulse" />
-                          <div className="w-20 h-20 rounded-full bg-brandViolet flex items-center justify-center text-3xl font-bold text-white shadow-lg z-10 border border-brandViolet/50 overflow-hidden">
-                            <img
-                              src={getFileUrl(callState.peerUser?.profilePhoto, callState.peerUser?.displayName || 'Caller')}
-                              onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(callState.peerUser?.displayName || 'Caller'); }}
-                              alt=""
-                              className="w-full h-full object-cover"
-                            />
+                    {/* Z-10: Self view PiP floating at Top-Right */}
+                    {callState.callType === 'video' && localStream && (
+                      <div className="absolute top-4 right-4 w-28 h-40 bg-gray-900 rounded-2xl overflow-hidden border-2 border-brandTeal shadow-md z-20">
+                        {isCameraOff ? (
+                          <div className="w-full h-full bg-gray-955 flex flex-col items-center justify-center text-[10px] text-gray-500 font-bold">
+                            <span>Camera Off</span>
                           </div>
-                        </div>
-                        
-                        <div className="text-center mt-2">
-                          <h2 className="text-2xl font-extrabold tracking-tight text-white">
-                            {callState.peerUser?.displayName}
-                          </h2>
-                          <span className="text-xs font-mono text-gray-500 block mt-1">
-                            @{callState.peerUser?.username}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Top Meta info */}
-                  <div className="absolute top-6 left-6 right-6 z-30 flex items-center justify-between pointer-events-none">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-brandViolet flex items-center justify-center font-bold text-white shadow-md overflow-hidden border border-brandViolet/50 shrink-0">
-                        {callState.peerUser?.profilePhoto ? (
-                          <img src={getFileUrl(callState.peerUser.profilePhoto)} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          callState.peerUser?.displayName?.charAt(0) || 'C'
+                          <video
+                            ref={(el) => {
+                              if (el && el.srcObject !== localStream) el.srcObject = localStream;
+                            }}
+                            autoPlay
+                            muted
+                            playsInline
+                            style={{ filter: getVideoFilterStyle() }}
+                            className="w-full h-full object-cover"
+                          />
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <span className="text-xs font-bold text-white block truncate">{callState.peerUser?.displayName}</span>
-                        <span className="text-[10px] text-gray-400 block truncate">@{callState.peerUser?.username}</span>
-                      </div>
+                    )}
+
+                    {/* Z-10: Audio Calling details or Video connecting details */}
+                    <div className="flex flex-col items-center justify-center z-10 w-full flex-1">
+                      {(callState.callType === 'voice' || !remoteStream || (callState.peerUser && peerStates[callState.peerUser.id]?.isCameraOff)) && (
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="relative flex items-center justify-center">
+                            <div className="absolute w-28 h-28 rounded-full bg-brandViolet/20 animate-ping" />
+                            <div className="absolute w-24 h-24 rounded-full bg-brandViolet/40 animate-pulse" />
+                            <div className="w-20 h-20 rounded-full bg-brandViolet flex items-center justify-center text-3xl font-bold text-white shadow-lg z-10 border border-brandViolet/50 overflow-hidden">
+                              <img
+                                src={getFileUrl(callState.peerUser?.profilePhoto, callState.peerUser?.displayName || 'Caller')}
+                                onError={(e) => { (e.target as HTMLImageElement).src = getRandomAvatar(callState.peerUser?.displayName || 'Caller'); }}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="text-center mt-2">
+                            <h2 className="text-2xl font-extrabold tracking-tight text-white flex items-center justify-center gap-2">
+                              {callState.peerUser?.displayName}
+                            </h2>
+                            <span className="text-xs font-mono text-gray-550 block mt-1">
+                              @{callState.peerUser?.username}
+                            </span>
+                            {/* Visual Peer Mute indicator */}
+                            {callState.peerUser && peerStates[callState.peerUser.id]?.isMuted && (
+                              <div className="mt-3 inline-flex items-center gap-1.5 bg-red-600/90 border border-red-500/30 px-3 py-1 rounded-full text-xs font-bold text-white tracking-wide shadow-md">
+                                <VolumeX className="w-3.5 h-3.5" />
+                                <span>Muted</span>
+                              </div>
+                            )}
+                            {callState.peerUser && peerStates[callState.peerUser.id]?.isCameraOff && callState.callType === 'video' && (
+                              <div className="mt-2 text-xs font-bold text-gray-550 tracking-wider">
+                                CAMERA TURNED OFF
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full border border-gray-800">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-[10px] font-extrabold text-emerald-400 tracking-wider uppercase">HD 1080p</span>
-                        <div className="flex items-end gap-0.5 h-2.5 ml-1">
-                          <span className="w-0.5 h-1 bg-emerald-400 rounded-xs" />
-                          <span className="w-0.5 h-1.5 bg-emerald-400 rounded-xs" />
-                          <span className="w-0.5 h-2.5 bg-emerald-400 rounded-xs" />
+
+                    {/* Top Meta info */}
+                    <div className="absolute top-6 left-6 right-6 z-30 flex items-center justify-between pointer-events-none">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-brandViolet flex items-center justify-center font-bold text-white shadow-md overflow-hidden border border-brandViolet/50 shrink-0">
+                          {callState.peerUser?.profilePhoto ? (
+                            <img src={getFileUrl(callState.peerUser.profilePhoto)} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            callState.peerUser?.displayName?.charAt(0) || 'C'
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-white block truncate">{callState.peerUser?.displayName}</span>
+                          <span className="text-[10px] text-gray-400 block truncate">@{callState.peerUser?.username}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] uppercase tracking-widest text-brandTeal font-bold flex items-center gap-1">
-                          🔒 Encrypted
-                        </span>
-                        <span className="text-xs text-white font-bold font-mono bg-gray-900/80 px-2 py-0.5 rounded-md border border-gray-800">
-                          {callState.callStatus === 'ringing' ? 'Ringing...' : formatCallDuration(callDuration)}
-                        </span>
+                      <div className="text-right flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full border border-gray-800">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="text-[10px] font-extrabold text-emerald-400 tracking-wider uppercase">HD 1080p</span>
+                          <div className="flex items-end gap-0.5 h-2.5 ml-1">
+                            <span className="w-0.5 h-1 bg-emerald-400 rounded-xs" />
+                            <span className="w-0.5 h-1.5 bg-emerald-400 rounded-xs" />
+                            <span className="w-0.5 h-2.5 bg-emerald-400 rounded-xs" />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] uppercase tracking-widest text-brandTeal font-bold flex items-center gap-1">
+                            🔒 Encrypted
+                          </span>
+                          <span className="text-xs text-white font-bold font-mono bg-gray-900/80 px-2 py-0.5 rounded-md border border-gray-800">
+                            {callState.callStatus === 'ringing' ? 'Ringing...' : formatCallDuration(callDuration)}
+                          </span>
+                        </div>
+                        {/* Minimize Action Button */}
+                        <div className="flex items-center gap-2 pointer-events-auto mt-1">
+                          <button
+                            onClick={() => setIsCallMinimized(true)}
+                            className="p-1.5 rounded-lg bg-black/50 hover:bg-black/80 text-gray-300 hover:text-white border border-gray-800 flex items-center justify-center transition-all hover:scale-105 shadow-md"
+                            title="Minimize Call"
+                          >
+                            <Minimize2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </>
-              )}
-
-              {/* Floating Bottom Control Actions */}
-              <div className="w-full flex items-center justify-center gap-6 z-30 pt-4 border-t border-white/5 bg-gradient-to-t from-black/80 to-transparent absolute bottom-0 left-0 p-6 rounded-b-3xl">
-                {callState.callStatus === 'ringing' && !callState.isCaller ? (
-                  <>
-                    <button
-                      onClick={handleAnswerCall}
-                      className="p-4 rounded-full bg-brandTeal hover:bg-brandTeal-dark text-white shadow-lg flex items-center justify-center transition-all hover:scale-105"
-                      title="Answer Call"
-                    >
-                      {callState.callType === 'video' ? <Video className="w-6 h-6" /> : <Phone className="w-6 h-6" />}
-                    </button>
-                    <button
-                      onClick={handleRejectCall}
-                      className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg flex items-center justify-center transition-all hover:scale-105"
-                      title="Reject Call"
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => {
-                        toggleMute(!isMuted);
-                        setIsMuted(!isMuted);
-                      }}
-                      className={`p-3.5 rounded-full shadow-md flex items-center justify-center transition-all ${
-                        isMuted ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-900 text-gray-400 hover:text-white'
-                      }`}
-                      title={isMuted ? "Unmute Audio" : "Mute Audio"}
-                    >
-                      <Mic className={`w-5 h-5 ${isMuted ? 'text-white' : 'text-gray-400'}`} />
-                    </button>
-                    
-                    {callState.callType === 'video' && (
-                      <button
-                        onClick={toggleScreenShare}
-                        className={`p-3.5 rounded-full shadow-md flex items-center justify-center transition-all ${
-                          isSharingScreen ? 'bg-brandTeal text-white animate-pulse' : 'bg-gray-900 text-gray-400 hover:text-white'
-                        }`}
-                        title={isSharingScreen ? "Stop Screen Share" : "Share Screen"}
-                      >
-                        <Monitor className="w-5 h-5" />
-                      </button>
-                    )}
-
-                    <button
-                      onClick={hangup}
-                      className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg flex items-center justify-center transition-all hover:scale-105"
-                      title="End Call"
-                    >
-                      <LogOut className="w-6 h-6" />
-                    </button>
-
-                    {callState.callType === 'video' && (
-                      <button
-                        onClick={() => setShowVideoFiltersMenu(!showVideoFiltersMenu)}
-                        className={`p-3.5 rounded-full shadow-md flex items-center justify-center transition-all ${
-                          showVideoFiltersMenu || activeVideoFilter !== 'none' ? 'bg-brandTeal text-white' : 'bg-gray-900 text-gray-400 hover:text-white'
-                        }`}
-                        title="Camera Filters"
-                      >
-                        <Sliders className="w-5 h-5" />
-                      </button>
-                    )}
-
-                    {callState.callType === 'video' && (
-                      <button
-                        onClick={() => {
-                          toggleCamera(!isCameraOff);
-                          setIsCameraOff(!isCameraOff);
-                        }}
-                        className={`p-3.5 rounded-full shadow-md flex items-center justify-center transition-all ${
-                          isCameraOff ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-900 text-gray-400 hover:text-white'
-                        }`}
-                        title={isCameraOff ? "Enable Video" : "Toggle Video"}
-                      >
-                        <Video className={`w-5 h-5 ${isCameraOff ? 'text-white' : 'text-gray-400'}`} />
-                      </button>
-                    )}
                   </>
                 )}
-              </div>
 
-              {/* In-Call Reactions Bar */}
-              {callState.callStatus === 'connected' && (
-                <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-gray-850 shadow-xl z-30 select-none">
-                  {['👍', '❤️', '😂', '🎉', '😮'].map((emoji) => (
-                    <button
-                      key={emoji}
-                      onClick={() => sendCallReaction(emoji)}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-sm hover:scale-125 transition-all active:scale-90"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
+                {/* Floating Bottom Control Actions */}
+                <div className="w-full flex items-center justify-center gap-4 z-30 pt-4 border-t border-white/5 bg-gradient-to-t from-black/80 to-transparent absolute bottom-0 left-0 p-6 rounded-b-3xl">
+                  {callState.callStatus === 'ringing' && !callState.isCaller ? (
+                    <>
+                      <button
+                        onClick={handleAnswerCall}
+                        className="p-4 rounded-full bg-brandTeal hover:bg-brandTeal-dark text-white shadow-lg flex items-center justify-center transition-all hover:scale-105"
+                        title="Answer Call"
+                      >
+                        {callState.callType === 'video' ? <Video className="w-6 h-6" /> : <Phone className="w-6 h-6" />}
+                      </button>
+                      <button
+                        onClick={handleRejectCall}
+                        className="p-4 rounded-full bg-red-650 hover:bg-red-755 text-white shadow-lg flex items-center justify-center transition-all hover:scale-105"
+                        title="Reject Call"
+                      >
+                        <X className="w-6 h-6" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Local Microphone Mute */}
+                      <button
+                        onClick={() => toggleMute(!isMuted)}
+                        className={`p-3.5 rounded-full shadow-md flex items-center justify-center transition-all hover:scale-105 ${
+                          isMuted ? 'bg-red-650 text-white hover:bg-red-700' : 'bg-gray-900 text-gray-400 hover:text-white'
+                        }`}
+                        title={isMuted ? "Unmute Audio" : "Mute Audio"}
+                      >
+                        <Mic className={`w-5 h-5 ${isMuted ? 'text-white' : 'text-gray-400'}`} />
+                      </button>
+
+                      {/* Speaker Output Control */}
+                      <button
+                        onClick={() => toggleSpeaker(!isSpeakerOn)}
+                        className={`p-3.5 rounded-full shadow-md flex items-center justify-center transition-all hover:scale-105 ${
+                          !isSpeakerOn ? 'bg-red-655 text-white hover:bg-red-700' : 'bg-gray-900 text-gray-400 hover:text-white'
+                        }`}
+                        title={isSpeakerOn ? "Mute Speaker Output" : "Speaker Output On"}
+                      >
+                        {isSpeakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-white" />}
+                      </button>
+                      
+                      {/* Screenshare (Video Call Only) */}
+                      {callState.callType === 'video' && (
+                        <button
+                          onClick={toggleScreenShare}
+                          className={`p-3.5 rounded-full shadow-md flex items-center justify-center transition-all hover:scale-105 ${
+                            isSharingScreen ? 'bg-brandTeal text-white animate-pulse' : 'bg-gray-900 text-gray-400 hover:text-white'
+                          }`}
+                          title={isSharingScreen ? "Stop Screen Share" : "Share Screen"}
+                        >
+                          <Monitor className="w-5 h-5" />
+                        </button>
+                      )}
+
+                      {/* End Call / Hangup */}
+                      <button
+                        onClick={hangup}
+                        className="p-4 rounded-full bg-red-600 hover:bg-red-755 text-white shadow-lg flex items-center justify-center transition-all hover:scale-110"
+                        title="End Call"
+                      >
+                        <LogOut className="w-6 h-6" />
+                      </button>
+
+                      {/* Flip Camera (Video Call Only) */}
+                      {callState.callType === 'video' && hasMultipleCameras && (
+                        <button
+                          onClick={flipCamera}
+                          className="p-3.5 rounded-full bg-gray-900 text-gray-400 hover:text-white shadow-md flex items-center justify-center transition-all hover:scale-105"
+                          title="Flip Camera"
+                        >
+                          <RotateCw className="w-5 h-5" />
+                        </button>
+                      )}
+
+                      {/* Camera Filters (Video Call Only) */}
+                      {callState.callType === 'video' && (
+                        <button
+                          onClick={() => setShowVideoFiltersMenu(!showVideoFiltersMenu)}
+                          className={`p-3.5 rounded-full shadow-md flex items-center justify-center transition-all hover:scale-105 ${
+                            showVideoFiltersMenu || activeVideoFilter !== 'none' ? 'bg-brandTeal text-white' : 'bg-gray-900 text-gray-400 hover:text-white'
+                          }`}
+                          title="Camera Filters"
+                        >
+                          <Sliders className="w-5 h-5" />
+                        </button>
+                      )}
+
+                      {/* Local Video Toggle (Video Call Only) */}
+                      {callState.callType === 'video' && (
+                        <button
+                          onClick={() => toggleCamera(!isCameraOff)}
+                          className={`p-3.5 rounded-full shadow-md flex items-center justify-center transition-all hover:scale-105 ${
+                            isCameraOff ? 'bg-red-650 text-white hover:bg-red-700' : 'bg-gray-900 text-gray-400 hover:text-white'
+                          }`}
+                          title={isCameraOff ? "Enable Video" : "Disable Video"}
+                        >
+                          <Video className={`w-5 h-5 ${isCameraOff ? 'text-white' : 'text-gray-400'}`} />
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
-              )}
 
-              {/* Video Filters Menu Overlay */}
-              {showVideoFiltersMenu && callState.callType === 'video' && (
-                <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex flex-col gap-1 bg-gray-950 border border-gray-850 p-2 rounded-2xl shadow-2xl z-30 min-w-[120px] text-xs">
-                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider px-2 py-1 select-none">Filters</span>
-                  {([
-                    { key: 'none', label: 'Normal' },
-                    { key: 'beauty', label: 'Beauty ✨' },
-                    { key: 'blur', label: 'Blur 🌫️' },
-                    { key: 'grayscale', label: 'B&W 🌑' },
-                    { key: 'sepia', label: 'Vintage 🎞️' },
-                  ] as const).map((filter) => (
-                    <button
-                      key={filter.key}
-                      onClick={() => {
-                        setActiveVideoFilter(filter.key);
-                        setShowVideoFiltersMenu(false);
-                      }}
-                      className={`px-3 py-1.5 rounded-xl text-left font-semibold transition-colors ${
-                        activeVideoFilter === filter.key
-                          ? 'bg-brandTeal/20 text-brandTeal'
-                          : 'text-gray-400 hover:bg-gray-905 hover:text-white'
-                      }`}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
+                {/* In-Call Reactions Bar */}
+                {callState.callStatus === 'connected' && (
+                  <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-gray-850 shadow-xl z-30 select-none">
+                    {['👍', '❤️', '😂', '🎉', '😮'].map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => sendCallReaction(emoji)}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-sm hover:scale-125 transition-all active:scale-90"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Video Filters Menu Overlay */}
+                {showVideoFiltersMenu && callState.callType === 'video' && (
+                  <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex flex-col gap-1 bg-gray-955 border border-gray-850 p-2 rounded-2xl shadow-2xl z-30 min-w-[120px] text-xs">
+                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider px-2 py-1 select-none">Filters</span>
+                    {([
+                      { key: 'none', label: 'Normal' },
+                      { key: 'beauty', label: 'Beauty ✨' },
+                      { key: 'blur', label: 'Blur 🌫️' },
+                      { key: 'grayscale', label: 'B&W 🌑' },
+                      { key: 'sepia', label: 'Vintage 🎞️' },
+                    ] as const).map((filter) => (
+                      <button
+                        key={filter.key}
+                        onClick={() => {
+                          setActiveVideoFilter(filter.key);
+                          setShowVideoFiltersMenu(false);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-left font-semibold transition-colors ${
+                          activeVideoFilter === filter.key
+                            ? 'bg-brandTeal/20 text-brandTeal'
+                            : 'text-gray-400 hover:bg-gray-905 hover:text-white'
+                        }`}
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Floating Reaction Emojis Overlay */}
+                <div className="absolute inset-0 pointer-events-none z-40 overflow-hidden">
+                  <AnimatePresence>
+                    {callReactions.map((reaction) => (
+                      <motion.div
+                        key={reaction.id}
+                        initial={{ y: '80vh', x: `${30 + Math.random() * 40}%`, scale: 0.5, opacity: 0 }}
+                        animate={{
+                          y: '10vh',
+                          x: `${30 + Math.random() * 40}%`,
+                          scale: [0.8, 1.4, 1],
+                          opacity: [0, 1, 1, 0],
+                        }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 2.5, ease: 'easeOut' }}
+                        className="absolute text-3xl select-none"
+                      >
+                        {reaction.emoji}
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
-              )}
 
-              {/* Floating Reaction Emojis Overlay */}
-              <div className="absolute inset-0 pointer-events-none z-40 overflow-hidden">
-                <AnimatePresence>
-                  {callReactions.map((reaction) => (
-                    <motion.div
-                      key={reaction.id}
-                      initial={{ y: '80vh', x: `${30 + Math.random() * 40}%`, scale: 0.5, opacity: 0 }}
-                      animate={{
-                        y: '10vh',
-                        x: `${30 + Math.random() * 40}%`,
-                        scale: [0.8, 1.4, 1],
-                        opacity: [0, 1, 1, 0],
-                      }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 2.5, ease: 'easeOut' }}
-                      className="absolute text-3xl select-none"
-                    >
-                      {reaction.emoji}
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
               </div>
-
-            </div>
-          </motion.div>
+            </motion.div>
+          )
         )}
       </AnimatePresence>
+
 
       {/* 5. Modals (New Chat, New Group, New Channel, Status Upload) */}
       <AnimatePresence>

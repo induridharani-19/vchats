@@ -13,6 +13,10 @@ export const connectDB = async (): Promise<void> => {
 
     const conn = await mongoose.connect(sanitizedConnString);
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+    
+    // Seed admin accounts and system configurations
+    const { seedAdminsAndConfig } = require('./seed');
+    await seedAdminsAndConfig();
   } catch (error) {
     console.error(`MongoDB Connection Error: ${(error as Error).message}`);
     process.exit(1);
