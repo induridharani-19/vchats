@@ -19,7 +19,7 @@ const iceServers: RTCConfiguration = {
 
 export const useWebRTC = (socket: Socket | null) => {
   const dispatch = useDispatch();
-  const { activeCall, isCaller, peerUser, callType, callId, callStatus } = useSelector(
+  const { activeCall, incomingCall, isCaller, peerUser, callType, callId, callStatus } = useSelector(
     (state: RootState) => state.call
   );
 
@@ -140,7 +140,7 @@ export const useWebRTC = (socket: Socket | null) => {
 
   // 1-to-1 Call Handler Effect
   useEffect(() => {
-    if (!activeCall || !socket || !peerUser || peerUser.id === 'group') {
+    if ((!activeCall && !incomingCall) || !socket || !peerUser || peerUser.id === 'group') {
       return;
     }
 
@@ -175,7 +175,25 @@ export const useWebRTC = (socket: Socket | null) => {
       }
     };
 
+    // Track remote stream accumulation to prevent track loss when multiple tracks arrive (audio then video)
+    const remoteMediaStream = new MediaStream();
+
     const initConnection = async () => {
+      if (peerConnectionRef.current) {
+        // Already initialized (warmed up) during ringing.
+        // If the user has now answered (activeCall is true), emit call-accept.
+        if (!isCaller && activeCall) {
+          socket.emit('call-accept', { callerId: peerUser.id, callId });
+          // Process any pending offer that we received while ringing
+          if (pendingOfferRef.current) {
+            const pending = pendingOfferRef.current;
+            pendingOfferRef.current = null;
+            await processOffer(peerConnectionRef.current, pending);
+          }
+        }
+        return;
+      }
+
       try {
         const constraints: MediaStreamConstraints = {
           audio: {
@@ -202,11 +220,25 @@ export const useWebRTC = (socket: Socket | null) => {
         });
 
         pc.ontrack = (event) => {
-          const incomingStream = event.streams[0] || new MediaStream([event.track]);
-          incomingStream.getAudioTracks().forEach((track) => {
+          if (event.streams && event.streams[0]) {
+            event.streams[0].getTracks().forEach((track) => {
+              if (!remoteMediaStream.getTracks().includes(track)) {
+                remoteMediaStream.addTrack(track);
+              }
+            });
+          } else if (event.track) {
+            if (!remoteMediaStream.getTracks().includes(event.track)) {
+              remoteMediaStream.addTrack(event.track);
+            }
+          }
+
+          remoteMediaStream.getAudioTracks().forEach((track) => {
             track.enabled = isSpeakerOn;
           });
-          setRemoteStream(incomingStream);
+
+          // Create a new MediaStream instance to force React state update & rerender
+          const updatedStream = new MediaStream(remoteMediaStream.getTracks());
+          setRemoteStream(updatedStream);
           dispatch(connectCall());
         };
 
@@ -219,12 +251,12 @@ export const useWebRTC = (socket: Socket | null) => {
           }
         };
 
-        if (!isCaller) {
+        if (!isCaller && activeCall) {
           socket.emit('call-accept', { callerId: peerUser.id, callId });
         }
 
         // Process any pending offer received before connection initialization finished
-        if (pendingOfferRef.current) {
+        if (pendingOfferRef.current && activeCall) {
           const pending = pendingOfferRef.current;
           pendingOfferRef.current = null;
           await processOffer(pc, pending);
@@ -240,7 +272,7 @@ export const useWebRTC = (socket: Socket | null) => {
     socket.on('webrtc-offer', async ({ offer }) => {
       try {
         const pc = peerConnectionRef.current;
-        if (pc) {
+        if (pc && activeCall) {
           await processOffer(pc, offer);
         } else {
           pendingOfferRef.current = offer;
@@ -291,7 +323,7 @@ export const useWebRTC = (socket: Socket | null) => {
       socket.off('webrtc-ice-candidate');
       socket.off('call-state-change');
     };
-  }, [activeCall, socket, peerUser, callType, isCaller, dispatch]);
+  }, [activeCall, incomingCall, socket, peerUser, callType, isCaller, dispatch]);
 
   // Group Call Handler Effect (Multi-Peer Mesh)
   useEffect(() => {
@@ -340,14 +372,41 @@ export const useWebRTC = (socket: Socket | null) => {
       }
 
       pc.ontrack = (event) => {
-        const incomingStream = event.streams[0] || new MediaStream([event.track]);
-        incomingStream.getAudioTracks().forEach((track) => {
-          track.enabled = isSpeakerOn;
-        });
         setRemoteStreams((prev) => {
-          const exists = prev.some((p) => p.userId === peerId);
-          if (exists) return prev;
-          return [...prev, { userId: peerId, stream: incomingStream }];
+          const existingPeerIndex = prev.findIndex((p) => p.userId === peerId);
+          let targetStream: MediaStream;
+
+          if (existingPeerIndex !== -1) {
+            targetStream = prev[existingPeerIndex].stream;
+          } else {
+            targetStream = new MediaStream();
+          }
+
+          if (event.streams && event.streams[0]) {
+            event.streams[0].getTracks().forEach((track) => {
+              if (!targetStream.getTracks().includes(track)) {
+                targetStream.addTrack(track);
+              }
+            });
+          } else if (event.track) {
+            if (!targetStream.getTracks().includes(event.track)) {
+              targetStream.addTrack(event.track);
+            }
+          }
+
+          targetStream.getAudioTracks().forEach((track) => {
+            track.enabled = isSpeakerOn;
+          });
+
+          const updatedStream = new MediaStream(targetStream.getTracks());
+
+          if (existingPeerIndex !== -1) {
+            const updated = [...prev];
+            updated[existingPeerIndex] = { userId: peerId, stream: updatedStream };
+            return updated;
+          } else {
+            return [...prev, { userId: peerId, stream: updatedStream }];
+          }
         });
       };
 
