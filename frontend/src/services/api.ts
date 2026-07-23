@@ -2,7 +2,7 @@ import axios from 'axios';
 import { store } from '../redux/store';
 import { refreshTokenSuccess, logoutSuccess } from '../redux/authSlice';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'https://vchats-o1pe.onrender.com/api/v1';
 
 export const api = axios.create({
   baseURL: API_URL,

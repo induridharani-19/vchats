@@ -17,7 +17,7 @@ import {
 } from '../redux/chatSlice';
 import { receiveCall, endCall, connectCall } from '../redux/callSlice';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://vchats-o1pe.onrender.com';
 
 let socketInstance: Socket | null = null;
 let listenersBound = false;

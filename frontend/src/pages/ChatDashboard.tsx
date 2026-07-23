@@ -149,7 +149,7 @@ const getFileUrl = (url?: string, seedName?: string, gender?: string) => {
     return trimmed;
   }
 
-  let backendBase = (import.meta.env.VITE_API_URL || 'http://localhost:5050/api/v1').replace('/api/v1', '');
+  let backendBase = (import.meta.env.VITE_API_URL || 'https://vchats-o1pe.onrender.com/api/v1').replace('/api/v1', '');
   if (!backendBase.endsWith('/')) {
     backendBase = backendBase + '/';
   }
