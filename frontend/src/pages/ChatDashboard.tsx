@@ -824,7 +824,11 @@ How can I help you today? You can type:
   // Handle Call Timer
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
-    if (callState.callStatus === 'connected') {
+    const isMediaConnected = callState.peerUser?.id === 'group'
+      ? remoteStreams.length > 0
+      : !!remoteStream;
+
+    if (callState.callStatus === 'connected' && isMediaConnected) {
       timer = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
@@ -832,7 +836,7 @@ How can I help you today? You can type:
       setCallDuration(0);
     }
     return () => clearInterval(timer);
-  }, [callState.callStatus]);
+  }, [callState.callStatus, remoteStream, remoteStreams.length]);
 
   // Synchronize call logs with backend database status
   useEffect(() => {
@@ -5152,7 +5156,11 @@ How can I help you today? You can type:
                     </span>
                   </div>
                   <span className="text-[10px] font-mono font-bold bg-gray-900/90 border border-gray-800 px-1.5 py-0.5 rounded">
-                    {callState.callStatus === 'ringing' ? 'Calling...' : formatCallDuration(callDuration)}
+                    {callState.callStatus === 'ringing'
+                      ? 'Calling...'
+                      : callState.peerUser?.id !== 'group' && !remoteStream
+                      ? 'Connecting...'
+                      : formatCallDuration(callDuration)}
                   </span>
                 </div>
 
@@ -5231,7 +5239,11 @@ How can I help you today? You can type:
                         {callState.peerUser?.displayName || 'Group Call'}
                       </span>
                       <span className="text-[10px] text-brandTeal font-bold">
-                        {callState.callStatus === 'ringing' ? 'Calling group...' : `Connected (${callDuration}s)`}
+                        {callState.callStatus === 'ringing'
+                          ? 'Calling group...'
+                          : remoteStreams.length === 0
+                          ? 'Connecting...'
+                          : `Connected (${callDuration}s)`}
                       </span>
                     </div>
 
@@ -5438,7 +5450,11 @@ How can I help you today? You can type:
                             🔒 Encrypted
                           </span>
                           <span className="text-xs text-white font-bold font-mono bg-gray-900/80 px-2 py-0.5 rounded-md border border-gray-800">
-                            {callState.callStatus === 'ringing' ? 'Ringing...' : formatCallDuration(callDuration)}
+                            {callState.callStatus === 'ringing'
+                              ? (callState.isCaller ? 'Calling...' : 'Ringing...')
+                              : callState.peerUser?.id !== 'group' && !remoteStream
+                              ? 'Connecting...'
+                              : formatCallDuration(callDuration)}
                           </span>
                         </div>
                         {/* Minimize Action Button */}
