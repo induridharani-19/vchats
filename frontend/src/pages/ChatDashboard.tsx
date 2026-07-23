@@ -58,6 +58,7 @@ import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 
 import { RootState } from '../redux/store';
 import { logoutSuccess, updateUser } from '../redux/authSlice';
+import { getTranslation } from '../utils/translations';
 import {
   setActiveConversation,
   setConversations,
@@ -2357,6 +2358,7 @@ How can I help you today? You can type:
                   ? 'bg-brandTeal text-white shadow-lg'
                   : 'text-gray-500 hover:text-white hover:bg-gray-900/60'
               }`}
+              title={getTranslation('chats')}
             >
               <MessageSquare className="w-5 h-5" />
             </button>
@@ -2380,6 +2382,7 @@ How can I help you today? You can type:
                   ? 'bg-brandTeal text-white shadow-lg'
                   : 'text-gray-500 hover:text-white hover:bg-gray-900/60'
               }`}
+              title="Status Feed"
             >
               <Activity className="w-5 h-5" />
             </button>
@@ -2391,6 +2394,7 @@ How can I help you today? You can type:
                   ? 'bg-brandTeal text-white shadow-lg'
                   : 'text-gray-500 hover:text-white hover:bg-gray-900/60'
               }`}
+              title="Call History"
             >
               <Phone className="w-5 h-5" />
             </button>
@@ -2402,6 +2406,7 @@ How can I help you today? You can type:
                   ? 'bg-brandTeal text-white shadow-lg'
                   : 'text-gray-500 hover:text-white hover:bg-gray-900/60'
               }`}
+              title={getTranslation('settings')}
             >
               <Settings className="w-5 h-5" />
             </button>
@@ -2463,7 +2468,7 @@ How can I help you today? You can type:
           return (
             <>
               <div className="p-4 flex items-center justify-between border-b border-gray-900/60">
-                <span className="font-extrabold text-xl tracking-tight text-white">Chats</span>
+                <span className="font-extrabold text-xl tracking-tight text-white">{getTranslation('chats')}</span>
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setShowNewChatModal(true)}
@@ -2488,7 +2493,7 @@ How can I help you today? You can type:
                   <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
                   <input
                     type="text"
-                    placeholder="Search chats..."
+                    placeholder={getTranslation('search_placeholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-9 pr-4 py-2 rounded-xl bg-gray-900 border border-gray-800 focus:border-brandTeal focus:outline-none text-sm"
@@ -3024,7 +3029,7 @@ How can I help you today? You can type:
               // Main Settings Page
               <div className="flex flex-col h-full">
                 <div className="p-4 border-b border-gray-900/60 flex items-center justify-between">
-                  <span className="font-extrabold text-xl text-white">Settings</span>
+                  <span className="font-extrabold text-xl text-white">{getTranslation('settings')}</span>
                 </div>
                 
                 {/* Search Settings input */}
@@ -5089,7 +5094,7 @@ How can I help you today? You can type:
             </div>
             <h3 className="text-xl font-extrabold text-white">VChats Secure Messaging</h3>
             <p className="text-gray-500 text-sm max-w-sm mt-2 leading-relaxed">
-              Select a conversation from the sidebar or start a new search to begin exchanging real-time messages.
+              {getTranslation('select_chat')}
             </p>
           </div>
         )}

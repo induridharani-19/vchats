@@ -8,6 +8,7 @@ import { authStart, authSuccess, authFailure, logoutSuccess } from '../redux/aut
 import { api } from '../services/api';
 import { RootState } from '../redux/store';
 import { Eye, EyeOff, Lock, User as UserIcon, Fingerprint, Download, Smartphone, Monitor, X, Globe } from 'lucide-react';
+import { getTranslation } from '../utils/translations';
 
 const loginSchema = z.object({
   identifier: z.string().min(1, 'Username or Email is required'),
@@ -31,6 +32,7 @@ const Login: React.FC = () => {
   const handleLanguageChange = (lang: string) => {
     setSelectedLang(lang);
     localStorage.setItem('vchats_language', lang);
+    window.location.reload();
   };
   
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -199,7 +201,7 @@ const Login: React.FC = () => {
           <h2 className="text-3xl font-extrabold bg-gradient-to-r from-brandTeal to-brandViolet bg-clip-text text-transparent">
             VChats
           </h2>
-          <p className="text-gray-400 text-sm">Sign in to start messaging</p>
+          <p className="text-gray-400 text-sm">{getTranslation('sign_in_desc')}</p>
         </div>
 
         {/* Card */}
@@ -214,7 +216,7 @@ const Login: React.FC = () => {
             {/* Identifier input */}
             <div>
               <label className="block text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">
-                Username or Email
+                {getTranslation('email_label')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
@@ -237,10 +239,10 @@ const Login: React.FC = () => {
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-gray-400 text-xs font-semibold uppercase tracking-wider">
-                  Password
+                  {getTranslation('password_label')}
                 </label>
                 <Link to="/forgot-password" className="text-brandTeal text-xs font-semibold hover:underline">
-                  Forgot Password?
+                  {getTranslation('forgot_password')}
                 </Link>
               </div>
               <div className="relative">
@@ -287,7 +289,7 @@ const Login: React.FC = () => {
                 disabled={loading}
                 className="flex-1 py-3.5 rounded-xl bg-teal-gradient text-white font-bold shadow-glass hover:shadow-glass-hover transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Authenticating...' : 'Sign In'}
+                {loading ? getTranslation('logging_in') : getTranslation('login_btn')}
               </button>
               
               <button
@@ -315,9 +317,9 @@ const Login: React.FC = () => {
 
         {/* Footer Link */}
         <p className="text-center text-gray-400 text-sm mt-8">
-          Don't have an account?{' '}
+          {getTranslation('no_account')}{' '}
           <Link to="/register" className="text-brandTeal font-bold hover:underline">
-            Sign Up
+            {getTranslation('register_link')}
           </Link>
         </p>
       </div>
