@@ -445,7 +445,11 @@ export const logoutAll = async (req: AuthenticatedRequest, res: Response, next: 
       await req.user.save();
     }
 
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    });
     res.status(200).json({
       status: 'success',
       message: 'Logged out from all devices.',

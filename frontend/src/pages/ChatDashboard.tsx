@@ -2298,11 +2298,12 @@ How can I help you today? You can type:
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout');
+    } catch (err) {
+      console.error('Backend logout failed:', err);
+    } finally {
       dispatch(logoutSuccess());
       dispatch(clearChatState());
       navigate('/login');
-    } catch (err) {
-      console.error(err);
     }
   };
 

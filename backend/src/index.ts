@@ -33,6 +33,10 @@ import paymentRoutes from './routes/paymentRoutes';
 import { startScheduledMessagesJob } from './jobs/scheduledMessages';
 
 const app = express();
+
+// Trust proxy for rate limiting behind reverse proxies (like Render)
+app.set('trust proxy', 1);
+
 const httpServer = createServer(app);
 
 // Connect to Database
