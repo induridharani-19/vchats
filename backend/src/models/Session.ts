@@ -52,5 +52,6 @@ const SessionSchema: Schema = new Schema(
 
 SessionSchema.index({ refreshToken: 1 });
 SessionSchema.index({ userId: 1 });
+SessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export default mongoose.model<ISession>('Session', SessionSchema);
