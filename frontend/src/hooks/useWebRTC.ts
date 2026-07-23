@@ -44,8 +44,10 @@ export const useWebRTC = (socket: Socket | null) => {
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
   const iceCandidateQueueRef = useRef<RTCIceCandidateInit[]>([]);
   const pendingOfferRef = useRef<RTCSessionDescriptionInit | null>(null);
+  const isCallActiveRef = useRef(false);
 
   // Helper to cleanup streams/connections
   const cleanupCall = () => {
@@ -70,6 +72,10 @@ export const useWebRTC = (socket: Socket | null) => {
     setIsCameraOff(false);
     setIsSpeakerOn(true);
     setPeerStates({});
+    if (remoteStreamRef.current) {
+      remoteStreamRef.current.getTracks().forEach((track) => track.stop());
+      remoteStreamRef.current = null;
+    }
     setLocalStream(null);
     setRemoteStream(null);
     setRemoteStreams([]);
@@ -138,6 +144,11 @@ export const useWebRTC = (socket: Socket | null) => {
     }
   }, [callStatus]);
 
+  // Keep the active call ref synced
+  useEffect(() => {
+    isCallActiveRef.current = !!(activeCall || incomingCall);
+  }, [activeCall, incomingCall]);
+
   // 1-to-1 Call Handler Effect
   useEffect(() => {
     if ((!activeCall && !incomingCall) || !socket || !peerUser || peerUser.id === 'group') {
@@ -175,8 +186,11 @@ export const useWebRTC = (socket: Socket | null) => {
       }
     };
 
-    // Track remote stream accumulation to prevent track loss when multiple tracks arrive (audio then video)
-    const remoteMediaStream = new MediaStream();
+    // Track remote stream accumulation in a ref to prevent track loss across renders/effect cycles
+    if (!remoteStreamRef.current) {
+      remoteStreamRef.current = new MediaStream();
+    }
+    const remoteMediaStream = remoteStreamRef.current;
 
     const initConnection = async () => {
       if (peerConnectionRef.current) {
@@ -317,11 +331,15 @@ export const useWebRTC = (socket: Socket | null) => {
     });
 
     return () => {
-      cleanupCall();
       socket.off('webrtc-offer');
       socket.off('webrtc-answer');
       socket.off('webrtc-ice-candidate');
       socket.off('call-state-change');
+
+      // Only clean up connection if the call is actually ended
+      if (!isCallActiveRef.current) {
+        cleanupCall();
+      }
     };
   }, [activeCall, incomingCall, socket, peerUser, callType, isCaller, dispatch]);
 
